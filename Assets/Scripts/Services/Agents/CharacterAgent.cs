@@ -25,11 +25,6 @@ using TMPro;
 
 namespace ChatSystem.Characters
 {
-    public enum ConextType
-    {
-        Vision,
-        Conversation
-    }
     
     public class CharacterAgent : TurnCharacter
     {

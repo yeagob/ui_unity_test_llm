@@ -4,6 +4,7 @@ namespace MapSystem.Enums
     {
         Item,
         Character,
-        Obstacle
+        Obstacle,
+        DeadBody
     }
 }
