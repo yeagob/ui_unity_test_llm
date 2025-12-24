@@ -1,0 +1,130 @@
+/* Root Container */
+.root-container {
+    flex-grow: 1;
+    background-color: #2b2b2b;
+    padding: 8px;
+}
+
+/* Header */
+.header {
+    padding: 8px;
+    background-color: #3c3c3c;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.title-label {
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: #e0e0e0;
+    margin-bottom: 8px;
+}
+
+/* Messages Scroll */
+.messages-scroll {
+    flex-grow: 1;
+    background-color: #1e1e1e;
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 8px;
+}
+
+.messages-container {
+    flex-grow: 1;
+}
+
+/* Message Bubbles */
+.message-bubble {
+    padding: 10px 14px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    max-width: 80%;
+}
+
+.user-message {
+    background-color: #4a90d9;
+    color: white;
+    align-self: flex-end;
+    margin-left: 20%;
+}
+
+.assistant-message {
+    background-color: #3c3c3c;
+    color: #e0e0e0;
+    align-self: flex-start;
+    margin-right: 20%;
+}
+
+.tool-message {
+    background-color: #2d4a2d;
+    color: #a8d8a8;
+    align-self: flex-start;
+    margin-right: 20%;
+    font-size: 11px;
+    border-left-width: 3px;
+    border-left-color: #4caf50;
+}
+
+.system-message {
+    background-color: #4a4a2d;
+    color: #d8d8a8;
+    align-self: center;
+    font-size: 11px;
+    -unity-font-style: italic;
+}
+
+/* Tool Status */
+.tool-status {
+    padding: 6px 12px;
+    background-color: #3d3d1d;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.tool-status-label {
+    color: #ffcc00;
+    font-size: 12px;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Input Area */
+.input-area {
+    flex-direction: row;
+    padding: 8px;
+    background-color: #3c3c3c;
+    border-radius: 4px;
+}
+
+.message-input {
+    flex-grow: 1;
+    min-height: 40px;
+    margin-right: 8px;
+    background-color: #1e1e1e;
+    border-radius: 4px;
+    color: #e0e0e0;
+}
+
+.send-button {
+    width: 80px;
+    height: 40px;
+    background-color: #4a90d9;
+    color: white;
+    border-radius: 4px;
+    -unity-font-style: bold;
+}
+
+.send-button:hover {
+    background-color: #5aa0e9;
+}
+
+.send-button:active {
+    background-color: #3a80c9;
+}
+
+/* Loading State */
+.loading {
+    opacity: 0.6;
+}

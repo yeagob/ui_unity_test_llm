@@ -1,0 +1,27 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <Style src="AgentChatStyles.uss" />
+    
+    <ui:VisualElement name="root" class="root-container">
+        <!-- Header -->
+        <ui:VisualElement name="header" class="header">
+            <ui:Label text="LLM Agent Chat" class="title-label" />
+            <uie:ObjectField name="agent-config-field" label="Agent Config" type="ChatSystem.Configuration.ScriptableObjects.AgentConfig, Assembly-CSharp" />
+        </ui:VisualElement>
+        
+        <!-- Messages Area -->
+        <ui:ScrollView name="messages-scroll" class="messages-scroll">
+            <ui:VisualElement name="messages-container" class="messages-container" />
+        </ui:ScrollView>
+        
+        <!-- Tool Status -->
+        <ui:VisualElement name="tool-status" class="tool-status hidden">
+            <ui:Label name="tool-status-label" text="Executing tool..." class="tool-status-label" />
+        </ui:VisualElement>
+        
+        <!-- Input Area -->
+        <ui:VisualElement name="input-area" class="input-area">
+            <ui:TextField name="message-input" multiline="true" class="message-input" />
+            <ui:Button name="send-button" text="Send" class="send-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
