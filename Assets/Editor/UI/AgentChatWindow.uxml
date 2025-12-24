@@ -4,8 +4,12 @@
     <ui:VisualElement name="root" class="root-container">
         <!-- Header -->
         <ui:VisualElement name="header" class="header">
-            <ui:Label text="LLM Agent Chat" class="title-label" />
-            <uie:ObjectField name="agent-config-field" label="Agent Config" type="ChatSystem.Configuration.ScriptableObjects.AgentConfig, Assembly-CSharp" />
+            <ui:Label text="🤖 LLM Agent Chat" class="title-label" />
+            <ui:VisualElement class="header-controls">
+                <ui:Toggle name="debug-toggle" label="Debug" class="debug-toggle" value="true" />
+                <ui:Button name="clear-button" text="🗑" tooltip="Clear conversation" class="clear-button" />
+                <uie:ObjectField name="agent-config-field" type="ChatSystem.Configuration.ScriptableObjects.AgentConfig, Assembly-CSharp" style="min-width: 180px;" />
+            </ui:VisualElement>
         </ui:VisualElement>
         
         <!-- Messages Area -->
@@ -13,15 +17,22 @@
             <ui:VisualElement name="messages-container" class="messages-container" />
         </ui:ScrollView>
         
-        <!-- Tool Status -->
+        <!-- Tool Status Bar -->
         <ui:VisualElement name="tool-status" class="tool-status hidden">
-            <ui:Label name="tool-status-label" text="Executing tool..." class="tool-status-label" />
+            <ui:VisualElement class="tool-status-icon" />
+            <ui:Label name="tool-status-label" text="Processing..." class="tool-status-label" />
         </ui:VisualElement>
         
         <!-- Input Area -->
-        <ui:VisualElement name="input-area" class="input-area">
-            <ui:TextField name="message-input" multiline="true" class="message-input" />
-            <ui:Button name="send-button" text="Send" class="send-button" />
+        <ui:VisualElement class="input-wrapper">
+            <ui:VisualElement name="input-area" class="input-area">
+                <ui:TextField name="message-input" multiline="true" class="message-input" />
+                <ui:Button name="send-button" text="➤" class="send-button" />
+            </ui:VisualElement>
+            <ui:VisualElement class="input-footer">
+                <ui:Label text="Enter: send • Ctrl+Enter: new line" class="input-hint" />
+                <ui:Label name="char-count-label" text="0 / 4000" class="char-count" />
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

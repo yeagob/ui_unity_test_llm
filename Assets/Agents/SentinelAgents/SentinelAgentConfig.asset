@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43ed1e55f7515cc4a9e118ddca548f65, type: 3}
+  m_Name: SentinelAgentConfig
+  m_EditorClassIdentifier: 
+  agentId: Sentinel
+  agentName: Sentinel Testing Agent
+  description: Agente de testing automatizado de UI con capacidades de inspeccion,
+    interaccion y generacion de informes.
+  providerConfig: {fileID: 11400000, guid: 67f7ec96dc639b94f9bd2ab55f229885, type: 2}
+  modelConfig: {fileID: 11400000, guid: 450ee2b7193e37542b61e1df3af89c13, type: 2}
+  systemPrompt: {fileID: 11400000, guid: 1d08ef98da07b5c4893d47b13ca60cbc, type: 2}
+  contextPrompts: []
+  availableTools:
+  - {fileID: 11400000, guid: 18664e417ff64f243b23aa570b91bbef, type: 2}
+  - {fileID: 11400000, guid: a4c7218c2d1994c4fa91d41302b56dc5, type: 2}
+  - {fileID: 11400000, guid: 7934e1f5cd03cfc4c979d59c59a10079, type: 2}
+  - {fileID: 11400000, guid: a0eeffeb546ba184f862c881a383ba18, type: 2}
+  - {fileID: 11400000, guid: 76a84fd61da9e124fb03e99b31a582b0, type: 2}
+  - {fileID: 11400000, guid: c271c3625cf974540a0d0a792f4a778f, type: 2}
+  - {fileID: 11400000, guid: a8f808e2ddd0577448a5732c94483489, type: 2}
+  debugTools: 1
+  canExecuteTools: 1
+  maxToolCalls: 20
+  maxResponseTokens: 2024
+  streamResponses: 0
+  maxRetries: 3
+  timeoutMs: 30000
+  fallbackToSimulation: 0
+  enabled: 1
+  priority: 0
+  requiredCapabilities: []

@@ -60,16 +60,6 @@ namespace ChatSystem.Services.Logging
         public static void LogAgentExecution(string agentId, string message)
         {
             LogInfo($"[AGENT:{agentId}] {message}");
-            
-            //TODO: ÑAPA
-            if (message.Contains("Context"))
-            {
-                UniversalLogUI.Instance.Log($"[EXECUTING AGENT:{agentId}]\n(waiting for response...)");
-            }
-            else
-            {
-                UniversalLogUI.Instance.Log($"[AGENT:{agentId}]- {message}");
-            }
         }
         
         public static void LogToolCall(string toolName, Dictionary<string, object> arguments)

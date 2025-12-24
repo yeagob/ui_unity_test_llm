@@ -9,6 +9,9 @@ using Sentinel.Interfaces;
 using Sentinel.Services;
 using UnityEngine;
 using UnityEngine.UIElements;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace Sentinel.Tools
 {
@@ -62,6 +65,7 @@ namespace Sentinel.Tools
                     "screenshot" => await ExecuteScreenshotAsync(toolCall),
                     "start_test" => await ExecuteStartTestAsync(toolCall),
                     "finish_test" => await ExecuteFinishTestAsync(toolCall),
+                    "get_editor_state" => await ExecuteGetEditorStateAsync(toolCall),
                     _ => CreateErrorResponse(toolCall.id, $"Unknown tool: {toolCall.name}")
                 };
                 
@@ -98,7 +102,8 @@ namespace Sentinel.Tools
             {
                 "query_ui" or "click" or "type_text" or "scroll" 
                 or "wait_seconds" or "wait_for_element" or "check_element_state"
-                or "screenshot" or "start_test" or "finish_test" => true,
+                or "screenshot" or "start_test" or "finish_test" 
+                or "get_editor_state" => true,
                 _ => false
             };
         }
@@ -206,6 +211,31 @@ namespace Sentinel.Tools
             return reportPath != null
                 ? CreateSuccessResponse(toolCall.id, $"Test finished. Report: {reportPath}")
                 : CreateErrorResponse(toolCall.id, "Failed to generate report");
+        }
+        
+        private async Task<ToolResponse> ExecuteGetEditorStateAsync(ToolCall toolCall)
+        {
+            await Task.Delay(10);
+            
+#if UNITY_EDITOR
+            bool isPlaying = EditorApplication.isPlaying;
+            bool isPaused = EditorApplication.isPaused;
+            bool isCompiling = EditorApplication.isCompiling;
+            string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            
+            string state = $"{{" +
+                $"\"isPlaying\": {isPlaying.ToString().ToLower()}, " +
+                $"\"isPaused\": {isPaused.ToString().ToLower()}, " +
+                $"\"isCompiling\": {isCompiling.ToString().ToLower()}, " +
+                $"\"currentScene\": \"{currentScene}\", " +
+                $"\"mode\": \"{(isPlaying ? "Play Mode" : "Edit Mode")}\"" +
+                $"}}";
+            
+            _reporter.LogStep("get_editor_state", isPlaying ? "Play Mode" : "Edit Mode");
+            return CreateSuccessResponse(toolCall.id, state);
+#else
+            return CreateSuccessResponse(toolCall.id, "{\"mode\": \"Runtime\", \"isPlaying\": true}");
+#endif
         }
         
         #endregion

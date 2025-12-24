@@ -250,14 +250,19 @@ namespace ChatSystem.Services.LLM
             QWENToolCall toolCall = new QWENToolCall();
             toolCall.function = new QWENFunction();
             
+            if (string.IsNullOrEmpty(json)) return toolCall;
+            
             int idStart = json.IndexOf("\"id\":\"");
             if (idStart != -1)
             {
                 idStart += 6;
-                int idEnd = json.IndexOf("\"", idStart);
-                if (idEnd != -1)
+                if (idStart < json.Length)
                 {
-                    toolCall.id = json.Substring(idStart, idEnd - idStart);
+                    int idEnd = json.IndexOf("\"", idStart);
+                    if (idEnd > idStart)
+                    {
+                        toolCall.id = json.Substring(idStart, idEnd - idStart);
+                    }
                 }
             }
             
@@ -265,10 +270,13 @@ namespace ChatSystem.Services.LLM
             if (nameStart != -1)
             {
                 nameStart += 8;
-                int nameEnd = json.IndexOf("\"", nameStart);
-                if (nameEnd != -1)
+                if (nameStart < json.Length)
                 {
-                    toolCall.function.name = json.Substring(nameStart, nameEnd - nameStart);
+                    int nameEnd = json.IndexOf("\"", nameStart);
+                    if (nameEnd > nameStart)
+                    {
+                        toolCall.function.name = json.Substring(nameStart, nameEnd - nameStart);
+                    }
                 }
             }
             
@@ -276,10 +284,13 @@ namespace ChatSystem.Services.LLM
             if (argsStart != -1)
             {
                 argsStart += 13;
-                int argsEnd = json.LastIndexOf("\"");
-                if (argsEnd > argsStart)
+                if (argsStart < json.Length)
                 {
-                    toolCall.function.arguments = json.Substring(argsStart, argsEnd - argsStart);
+                    int argsEnd = json.LastIndexOf("\"");
+                    if (argsEnd > argsStart)
+                    {
+                        toolCall.function.arguments = json.Substring(argsStart, argsEnd - argsStart);
+                    }
                 }
             }
             

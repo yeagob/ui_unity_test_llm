@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1689bfe41020f8a45995d425251a2b6f, type: 3}
+  m_Name: FinishTestToolConfig
+  m_EditorClassIdentifier: 
+  toolId: finish_test
+  toolName: finish_test
+  toolType: 3
+  function:
+    name: finish_test
+    description: Finaliza el test actual y genera el informe
+    parameters:
+      type: object
+      properties:
+      - key: success
+        value:
+          type: boolean
+          description: Si el test fue exitoso o no
+          enumValues: []
+          items:
+            type: 
+            description: 
+      - key: summary
+        value:
+          type: string
+          description: Resumen del resultado del test
+          enumValues: []
+          items:
+            type: 
+            description: 
+      required:
+      - success
+      - summary
+  annotations:
+    title: Finish Test
+    readOnlyHint: 0
+    destructiveHint: 0
+    idempotentHint: 0
+    openWorldHint: 0
+  enabled: 1
+  requiresAuthentication: 0
+  timeoutMs: 5000
+  maxRetries: 1
+  hasRateLimit: 0
+  requestsPerMinute: 60

@@ -85,6 +85,27 @@ namespace ChatSystem.Services.Agents
             }
         }
         
+        /// <summary>
+        /// Executes the agent using the provided AgentConfig directly (no registration needed).
+        /// Useful for Editor tools where config is serialized but executor state is lost.
+        /// </summary>
+        public async Task<AgentResponse> ExecuteAgentAsync(AgentConfig agentConfig, ConversationContext context)
+        {
+            if (agentConfig == null)
+            {
+                LoggingService.LogError("AgentConfig is null");
+                return CreateErrorResponse("unknown", "Agent configuration is null");
+            }
+            
+            // Auto-register if not already registered
+            if (!agentConfigs.ContainsKey(agentConfig.agentId))
+            {
+                RegisterAgent(agentConfig);
+            }
+            
+            return await ExecuteAgentAsync(agentConfig.agentId, context);
+        }
+        
         public void RegisterAgent(AgentConfig agentConfig)
         {
             if (agentConfig == null || string.IsNullOrEmpty(agentConfig.agentId))
