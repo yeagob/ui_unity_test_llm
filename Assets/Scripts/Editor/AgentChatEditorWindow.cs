@@ -160,6 +160,9 @@ namespace ChatSystem.Editor
             // Register non-game toolsets
             m_AgentExecutor.RegisterToolSet(new TravelToolSet());
             m_AgentExecutor.RegisterToolSet(new UserToolSet());
+            
+            // Register Sentinel testing toolset (uses null root for now - will be set per test)
+            m_AgentExecutor.RegisterToolSet(new Sentinel.Tools.SentinelToolSet(() => null));
         }
         
         private void OnAgentConfigChanged(ChangeEvent<UnityEngine.Object> evt)
