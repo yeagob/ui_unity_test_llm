@@ -1,14 +1,17 @@
 using System;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.UIElements;
+using UnityEngine.EventSystems;
 using Sentinel.Interfaces;
+using TMPro;
 
 namespace Sentinel.Services
 {
     /// <summary>
-    /// Executes UI interactions using Unity UI Toolkit Test Framework patterns.
-    /// Uses Pointer and Keyboard simulation for reliable, frame-independent testing.
+    /// Executes UI interactions for both UI Toolkit and Canvas (uGUI).
+    /// Uses event simulation for reliable, frame-independent testing.
     /// </summary>
     public class UIInteractorService : IUIInteractor
     {
@@ -21,116 +24,173 @@ namespace Sentinel.Services
         
         public async Task<bool> ClickAsync(string elementPath)
         {
+            // Try UI Toolkit first
             VisualElement root = _rootProvider?.Invoke();
-            if (root == null)
+            if (root != null)
             {
-                Debug.LogWarning("[Sentinel] No UI root available for click");
-                return false;
+                VisualElement element = root.Q(elementPath);
+                if (element != null)
+                {
+                    return await ClickUIToolkitElement(element, elementPath);
+                }
             }
             
-            VisualElement element = root.Q(elementPath);
-            if (element == null)
+            // Try Canvas/uGUI
+            GameObject canvasObj = FindCanvasElement(elementPath);
+            if (canvasObj != null)
             {
-                Debug.LogWarning($"[Sentinel] Element not found: {elementPath}");
-                return false;
+                return await ClickCanvasElement(canvasObj, elementPath);
             }
             
+            Debug.LogWarning($"[Sentinel] Element not found in any UI system: {elementPath}");
+            return false;
+        }
+        
+        private async Task<bool> ClickUIToolkitElement(VisualElement element, string elementPath)
+        {
             try
             {
-                // Calculate center position using worldBound (as per UI Toolkit Test Framework)
                 Rect worldBound = element.worldBound;
                 Vector2 center = worldBound.center;
                 
-                // Simulate pointer event sequence: Move -> Down -> Up
                 SimulatePointerClick(element, center);
+                await Task.Delay(50);
                 
-                // Wait one frame for callbacks to execute
-                await Task.Delay(16);
-                
-                Debug.Log($"[Sentinel] Clicked: {elementPath}");
+                Debug.Log($"[Sentinel] Clicked UIToolkit element: {elementPath}");
                 return true;
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[Sentinel] Click failed: {ex.Message}");
+                Debug.LogError($"[Sentinel] UIToolkit click failed: {ex.Message}");
+                return false;
+            }
+        }
+        
+        private async Task<bool> ClickCanvasElement(GameObject obj, string elementPath)
+        {
+            try
+            {
+                // Check for Button component
+                UnityEngine.UI.Button button = obj.GetComponent<UnityEngine.UI.Button>();
+                if (button != null && button.interactable)
+                {
+                    button.onClick.Invoke();
+                    await Task.Delay(50);
+                    Debug.Log($"[Sentinel] Clicked Canvas Button: {elementPath}");
+                    return true;
+                }
+                
+                // Check for Toggle
+                UnityEngine.UI.Toggle toggle = obj.GetComponent<UnityEngine.UI.Toggle>();
+                if (toggle != null && toggle.interactable)
+                {
+                    toggle.isOn = !toggle.isOn;
+                    await Task.Delay(50);
+                    Debug.Log($"[Sentinel] Toggled Canvas Toggle: {elementPath}");
+                    return true;
+                }
+                
+                // Try to use EventSystem for generic click
+                IPointerClickHandler clickHandler = obj.GetComponent<IPointerClickHandler>();
+                if (clickHandler != null)
+                {
+                    PointerEventData eventData = new PointerEventData(EventSystem.current);
+                    clickHandler.OnPointerClick(eventData);
+                    await Task.Delay(50);
+                    Debug.Log($"[Sentinel] Clicked Canvas element via IPointerClickHandler: {elementPath}");
+                    return true;
+                }
+                
+                Debug.LogWarning($"[Sentinel] Canvas element has no clickable component: {elementPath}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Sentinel] Canvas click failed: {ex.Message}");
                 return false;
             }
         }
         
         public async Task<bool> TypeAsync(string elementPath, string text)
         {
+            // Try UI Toolkit first
             VisualElement root = _rootProvider?.Invoke();
-            if (root == null)
+            if (root != null)
             {
-                Debug.LogWarning("[Sentinel] No UI root available for type");
-                return false;
-            }
-            
-            VisualElement element = root.Q(elementPath);
-            if (element == null)
-            {
-                Debug.LogWarning($"[Sentinel] Element not found: {elementPath}");
-                return false;
-            }
-            
-            try
-            {
-                // Focus the element first
-                element.Focus();
-                await Task.Delay(16);
-                
-                // If it's a TextField, set value directly
+                VisualElement element = root.Q(elementPath);
                 if (element is TextField textField)
                 {
+                    textField.Focus();
+                    await Task.Delay(16);
                     textField.value = text;
-                    Debug.Log($"[Sentinel] Typed into {elementPath}: {text}");
+                    Debug.Log($"[Sentinel] Typed into UIToolkit TextField: {elementPath}");
+                    return true;
+                }
+            }
+            
+            // Try Canvas/uGUI
+            GameObject canvasObj = FindCanvasElement(elementPath);
+            if (canvasObj != null)
+            {
+                // Try legacy InputField
+                InputField inputField = canvasObj.GetComponent<InputField>();
+                if (inputField != null)
+                {
+                    inputField.text = text;
+                    inputField.onValueChanged?.Invoke(text);
+                    await Task.Delay(50);
+                    Debug.Log($"[Sentinel] Typed into Canvas InputField: {elementPath}");
                     return true;
                 }
                 
-                Debug.LogWarning($"[Sentinel] Element is not a text input: {elementPath}");
-                return false;
+                // Try TMP InputField
+                TMP_InputField tmpInput = canvasObj.GetComponent<TMP_InputField>();
+                if (tmpInput != null)
+                {
+                    tmpInput.text = text;
+                    tmpInput.onValueChanged?.Invoke(text);
+                    await Task.Delay(50);
+                    Debug.Log($"[Sentinel] Typed into Canvas TMP_InputField: {elementPath}");
+                    return true;
+                }
             }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[Sentinel] Type failed: {ex.Message}");
-                return false;
-            }
+            
+            Debug.LogWarning($"[Sentinel] No text input found: {elementPath}");
+            return false;
         }
         
         public async Task<bool> ScrollAsync(string elementPath, float delta)
         {
+            // Try UI Toolkit first
             VisualElement root = _rootProvider?.Invoke();
-            if (root == null)
+            if (root != null)
             {
-                Debug.LogWarning("[Sentinel] No UI root available for scroll");
-                return false;
-            }
-            
-            VisualElement element = root.Q(elementPath);
-            if (element == null)
-            {
-                Debug.LogWarning($"[Sentinel] Element not found: {elementPath}");
-                return false;
-            }
-            
-            try
-            {
+                VisualElement element = root.Q(elementPath);
                 if (element is ScrollView scrollView)
                 {
                     scrollView.scrollOffset += new Vector2(0, delta);
                     await Task.Delay(16);
-                    Debug.Log($"[Sentinel] Scrolled {elementPath} by {delta}");
+                    Debug.Log($"[Sentinel] Scrolled UIToolkit: {elementPath} by {delta}");
                     return true;
                 }
-                
-                Debug.LogWarning($"[Sentinel] Element is not scrollable: {elementPath}");
-                return false;
             }
-            catch (Exception ex)
+            
+            // Try Canvas/uGUI
+            GameObject canvasObj = FindCanvasElement(elementPath);
+            if (canvasObj != null)
             {
-                Debug.LogError($"[Sentinel] Scroll failed: {ex.Message}");
-                return false;
+                ScrollRect scrollRect = canvasObj.GetComponent<ScrollRect>();
+                if (scrollRect != null)
+                {
+                    scrollRect.verticalNormalizedPosition -= delta / 1000f;
+                    await Task.Delay(50);
+                    Debug.Log($"[Sentinel] Scrolled Canvas ScrollRect: {elementPath}");
+                    return true;
+                }
             }
+            
+            Debug.LogWarning($"[Sentinel] No scrollable element found: {elementPath}");
+            return false;
         }
         
         public async Task WaitSecondsAsync(float seconds)
@@ -142,24 +202,30 @@ namespace Sentinel.Services
         
         public async Task<bool> WaitForElementAsync(string elementPath, float timeoutSeconds)
         {
-            VisualElement root = _rootProvider?.Invoke();
-            if (root == null)
-            {
-                Debug.LogWarning("[Sentinel] No UI root available");
-                return false;
-            }
-            
             float elapsed = 0f;
             float pollInterval = 0.1f;
             
             while (elapsed < timeoutSeconds)
             {
-                VisualElement element = root.Q(elementPath);
-                if (element != null 
-                    && element.resolvedStyle.display == DisplayStyle.Flex
-                    && element.resolvedStyle.visibility == Visibility.Visible)
+                // Check UI Toolkit
+                VisualElement root = _rootProvider?.Invoke();
+                if (root != null)
                 {
-                    Debug.Log($"[Sentinel] Element found: {elementPath}");
+                    VisualElement element = root.Q(elementPath);
+                    if (element != null 
+                        && element.resolvedStyle.display == DisplayStyle.Flex
+                        && element.resolvedStyle.visibility == Visibility.Visible)
+                    {
+                        Debug.Log($"[Sentinel] UIToolkit element found: {elementPath}");
+                        return true;
+                    }
+                }
+                
+                // Check Canvas
+                GameObject canvasObj = FindCanvasElement(elementPath);
+                if (canvasObj != null && canvasObj.activeInHierarchy)
+                {
+                    Debug.Log($"[Sentinel] Canvas element found: {elementPath}");
                     return true;
                 }
                 
@@ -171,11 +237,46 @@ namespace Sentinel.Services
             return false;
         }
         
+        /// <summary>
+        /// Finds a Canvas element by name or path.
+        /// Supports: "ButtonName" or "Canvas/Panel/ButtonName"
+        /// </summary>
+        private GameObject FindCanvasElement(string elementPath)
+        {
+            // Try exact path first
+            GameObject found = GameObject.Find(elementPath);
+            if (found != null) return found;
+            
+            // Try finding by name in all canvases
+            Canvas[] canvases = UnityEngine.Object.FindObjectsOfType<Canvas>();
+            foreach (Canvas canvas in canvases)
+            {
+                Transform result = FindChildRecursive(canvas.transform, elementPath);
+                if (result != null) return result.gameObject;
+            }
+            
+            return null;
+        }
+        
+        private Transform FindChildRecursive(Transform parent, string name)
+        {
+            // Check exact name match
+            if (parent.name == name) return parent;
+            
+            // Check if name is part of a path
+            foreach (Transform child in parent)
+            {
+                if (child.name == name) return child;
+                
+                Transform found = FindChildRecursive(child, name);
+                if (found != null) return found;
+            }
+            
+            return null;
+        }
+        
         private void SimulatePointerClick(VisualElement element, Vector2 position)
         {
-            // Create and dispatch pointer events following UI Toolkit Test Framework pattern
-            // PointerDown -> PointerUp -> Click
-            
             using (PointerDownEvent downEvent = PointerDownEvent.GetPooled())
             {
                 downEvent.target = element;

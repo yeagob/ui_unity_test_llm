@@ -216,6 +216,15 @@ namespace Sentinel.Services
             {
                 output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"Slider\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"value\": {slider.value}, \"enabled\": {slider.interactable.ToString().ToLower()}}}");
             }
+            // Include Text elements for reference (not interactive but useful for context)
+            else if (tmpText != null && !string.IsNullOrEmpty(tmpText.text))
+            {
+                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"Text\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"text\": \"{EscapeJson(tmpText.text)}\", \"interactable\": false}}");
+            }
+            else if (text != null && !string.IsNullOrEmpty(text.text))
+            {
+                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"Text\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"text\": \"{EscapeJson(text.text)}\", \"interactable\": false}}");
+            }
             
             // Recurse children
             foreach (Transform child in obj.transform)
