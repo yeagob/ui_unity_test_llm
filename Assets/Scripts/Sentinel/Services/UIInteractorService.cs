@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
@@ -70,24 +71,43 @@ namespace Sentinel.Services
         {
             try
             {
+                Debug.Log($"[Sentinel] Attempting to click Canvas element: {obj.name} (active: {obj.activeInHierarchy})");
+                
                 // Check for Button component
                 UnityEngine.UI.Button button = obj.GetComponent<UnityEngine.UI.Button>();
-                if (button != null && button.interactable)
+                if (button != null)
                 {
-                    button.onClick.Invoke();
-                    await Task.Delay(50);
-                    Debug.Log($"[Sentinel] Clicked Canvas Button: {elementPath}");
-                    return true;
+                    if (button.interactable)
+                    {
+                        Debug.Log($"[Sentinel] Found Button component, invoking onClick...");
+                        button.onClick.Invoke();
+                        await Task.Delay(50);
+                        Debug.Log($"[Sentinel] ✓ Clicked Canvas Button: {elementPath}");
+                        return true;
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[Sentinel] Button found but NOT interactable: {elementPath}");
+                        return false;
+                    }
                 }
                 
                 // Check for Toggle
                 UnityEngine.UI.Toggle toggle = obj.GetComponent<UnityEngine.UI.Toggle>();
-                if (toggle != null && toggle.interactable)
+                if (toggle != null)
                 {
-                    toggle.isOn = !toggle.isOn;
-                    await Task.Delay(50);
-                    Debug.Log($"[Sentinel] Toggled Canvas Toggle: {elementPath}");
-                    return true;
+                    if (toggle.interactable)
+                    {
+                        toggle.isOn = !toggle.isOn;
+                        await Task.Delay(50);
+                        Debug.Log($"[Sentinel] ✓ Toggled Canvas Toggle: {elementPath}");
+                        return true;
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[Sentinel] Toggle found but NOT interactable: {elementPath}");
+                        return false;
+                    }
                 }
                 
                 // Try to use EventSystem for generic click
@@ -97,16 +117,23 @@ namespace Sentinel.Services
                     PointerEventData eventData = new PointerEventData(EventSystem.current);
                     clickHandler.OnPointerClick(eventData);
                     await Task.Delay(50);
-                    Debug.Log($"[Sentinel] Clicked Canvas element via IPointerClickHandler: {elementPath}");
+                    Debug.Log($"[Sentinel] ✓ Clicked Canvas element via IPointerClickHandler: {elementPath}");
                     return true;
                 }
                 
-                Debug.LogWarning($"[Sentinel] Canvas element has no clickable component: {elementPath}");
+                // List what components ARE on the object for debugging
+                Component[] components = obj.GetComponents<Component>();
+                string componentList = "";
+                foreach (Component c in components)
+                {
+                    if (c != null) componentList += c.GetType().Name + ", ";
+                }
+                Debug.LogWarning($"[Sentinel] No clickable component on '{obj.name}'. Components found: [{componentList}]");
                 return false;
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[Sentinel] Canvas click failed: {ex.Message}");
+                Debug.LogError($"[Sentinel] Canvas click failed with exception: {ex.Message}\n{ex.StackTrace}");
                 return false;
             }
         }
@@ -243,36 +270,97 @@ namespace Sentinel.Services
         /// </summary>
         private GameObject FindCanvasElement(string elementPath)
         {
-            // Try exact path first
+            if (string.IsNullOrEmpty(elementPath))
+            {
+                Debug.LogWarning("[Sentinel] FindCanvasElement: Empty path");
+                return null;
+            }
+            
+            // Try exact Unity path first (requires absolute path from root of scene)
             GameObject found = GameObject.Find(elementPath);
-            if (found != null) return found;
+            if (found != null)
+            {
+                Debug.Log($"[Sentinel] Found via GameObject.Find: {elementPath}");
+                return found;
+            }
+            
+            // Extract the last part of the path (the element name)
+            string elementName = elementPath;
+            if (elementPath.Contains("/"))
+            {
+                string[] parts = elementPath.Split('/');
+                elementName = parts[parts.Length - 1];
+            }
+            
+            Debug.Log($"[Sentinel] Searching for element by name: '{elementName}' (from path: {elementPath})");
             
             // Try finding by name in all canvases
             Canvas[] canvases = UnityEngine.Object.FindObjectsOfType<Canvas>();
+            Debug.Log($"[Sentinel] Found {canvases.Length} Canvas objects in scene");
+            
             foreach (Canvas canvas in canvases)
             {
-                Transform result = FindChildRecursive(canvas.transform, elementPath);
-                if (result != null) return result.gameObject;
+                if (!canvas.gameObject.activeInHierarchy) continue;
+                
+                Transform result = FindChildByName(canvas.transform, elementName);
+                if (result != null)
+                {
+                    Debug.Log($"[Sentinel] Found '{elementName}' in Canvas '{canvas.name}' at path: {GetFullPath(result)}");
+                    return result.gameObject;
+                }
+            }
+            
+            // Try finding in all root objects (in case it's not under a Canvas)
+            GameObject[] rootObjects = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+            foreach (GameObject root in rootObjects)
+            {
+                Transform result = FindChildByName(root.transform, elementName);
+                if (result != null)
+                {
+                    Debug.Log($"[Sentinel] Found '{elementName}' under root '{root.name}'");
+                    return result.gameObject;
+                }
+            }
+            
+            Debug.LogWarning($"[Sentinel] Element NOT FOUND: '{elementName}' (original path: {elementPath})");
+            return null;
+        }
+        
+        private Transform FindChildByName(Transform parent, string name)
+        {
+            // Check direct match first
+            if (parent.name == name) return parent;
+            
+            // BFS search for the name
+            Queue<Transform> queue = new Queue<Transform>();
+            queue.Enqueue(parent);
+            
+            while (queue.Count > 0)
+            {
+                Transform current = queue.Dequeue();
+                
+                foreach (Transform child in current)
+                {
+                    if (child.name == name)
+                    {
+                        return child;
+                    }
+                    queue.Enqueue(child);
+                }
             }
             
             return null;
         }
         
-        private Transform FindChildRecursive(Transform parent, string name)
+        private string GetFullPath(Transform t)
         {
-            // Check exact name match
-            if (parent.name == name) return parent;
-            
-            // Check if name is part of a path
-            foreach (Transform child in parent)
+            string path = t.name;
+            while (t.parent != null)
             {
-                if (child.name == name) return child;
-                
-                Transform found = FindChildRecursive(child, name);
-                if (found != null) return found;
+                t = t.parent;
+                path = t.name + "/" + path;
             }
-            
-            return null;
+            return path;
         }
         
         private void SimulatePointerClick(VisualElement element, Vector2 position)

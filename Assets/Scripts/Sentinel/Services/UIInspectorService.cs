@@ -49,7 +49,11 @@ namespace Sentinel.Services
                 {
                     if (canvas.gameObject.activeInHierarchy)
                     {
-                        CollectCanvasElements(canvas.gameObject, canvas.name, elements);
+                        // Get parent path (so the canvas name gets added by CollectCanvasElements)
+                        string parentPath = canvas.transform.parent != null 
+                            ? GetGameObjectFullPath(canvas.transform.parent) 
+                            : "";
+                        CollectCanvasElements(canvas.gameObject, parentPath, elements);
                     }
                 }
             }
@@ -285,6 +289,21 @@ namespace Sentinel.Services
         {
             if (string.IsNullOrEmpty(text)) return "";
             return text.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
+        }
+        
+        /// <summary>
+        /// Gets the full hierarchy path from scene root (for GameObject.Find compatibility).
+        /// Example: "Main_Menu/Canv_Main/MAIN/VerticalLayout/Btn_Settings"
+        /// </summary>
+        private string GetGameObjectFullPath(Transform t)
+        {
+            string path = t.name;
+            while (t.parent != null)
+            {
+                t = t.parent;
+                path = t.name + "/" + path;
+            }
+            return path;
         }
     }
 }
