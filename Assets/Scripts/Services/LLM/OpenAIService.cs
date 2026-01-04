@@ -222,12 +222,31 @@ namespace ChatSystem.Services.LLM
             stringBuilder.Append($"\"model\":\"{request.model}\",");
             stringBuilder.Append($"\"temperature\":{request.temperature.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}");
             
+            // Add reasoning support for compatible models (o1, GPT-5.x)
+            if (request.enableThinking && request.reasoningEffort != ReasoningEffort.None)
+            {
+                string effortValue = GetReasoningEffortString(request.reasoningEffort);
+                stringBuilder.Append($",\"reasoning_effort\":\"{effortValue}\"");
+                LoggingService.LogInfo($"[OpenAIService] Thinking enabled with reasoning_effort: {effortValue}");
+            }
+            
             List<Message> filteredMessages = FilterMessagesForOpenAI(request.messages);
             AppendMessages(stringBuilder, filteredMessages);
             AppendTools(stringBuilder, request.tools);
             stringBuilder.Append("}");
             
             return stringBuilder.ToString();
+        }
+        
+        private static string GetReasoningEffortString(ReasoningEffort effort)
+        {
+            switch (effort)
+            {
+                case ReasoningEffort.Low: return "low";
+                case ReasoningEffort.Medium: return "medium";
+                case ReasoningEffort.High: return "high";
+                default: return "medium";
+            }
         }
         
         private static List<Message> FilterMessagesForOpenAI(List<Message> messages)

@@ -11,6 +11,7 @@ using ChatSystem.Models.Agents;
 using ChatSystem.Services.Agents;
 using ChatSystem.Services.Tools;
 using ChatSystem.Services.Tools.Interfaces;
+using Sentinel.Core;
 
 namespace ChatSystem.Editor
 {
@@ -27,14 +28,18 @@ namespace ChatSystem.Editor
         private Label m_ToolStatusLabel;
         private ScrollView m_MessagesScroll;
         private Toggle m_DebugToggle;
+        private Toggle m_AutoModeToggle;
         private VisualElement m_LoadingIndicator;
         private Label m_CharCountLabel;
+        private Label m_IterationLabel;
         
         private AgentExecutor m_AgentExecutor;
         private ConversationContext m_Context;
         private bool m_IsProcessing;
         private bool m_DebugMode = true;
+        private bool m_AutoMode = false;
         private const int MAX_MESSAGE_LENGTH = 4000;
+        private const int MAX_ITERATIONS = 20;
         
         [MenuItem("Window/LLM/Agent Chat")]
         public static void ShowWindow()
@@ -184,6 +189,17 @@ namespace ChatSystem.Editor
             debugToggle.name = "debug-toggle";
             debugToggle.value = true;
             headerControls.Add(debugToggle);
+            
+            Toggle autoModeToggle = new Toggle("🔄 Auto");
+            autoModeToggle.name = "auto-mode-toggle";
+            autoModeToggle.value = false;
+            autoModeToggle.tooltip = "Enable agentic loop - continues until goal is complete";
+            autoModeToggle.style.marginLeft = 8;
+            autoModeToggle.RegisterValueChangedCallback(evt => {
+                m_AutoMode = evt.newValue;
+                if (m_AutoMode) AddSystemMessage("🔄 Auto Mode enabled - Agent will loop until done");
+            });
+            headerControls.Add(autoModeToggle);
             
             Button clearBtn = new Button(() => OnClearClicked());
             clearBtn.name = "clear-button";
@@ -493,40 +509,15 @@ namespace ChatSystem.Editor
             
             try
             {
-                // Pass AgentConfig directly - handles auto-registration
-                AgentResponse response = await m_AgentExecutor.ExecuteAgentAsync(
-                    m_AgentConfig, 
-                    m_Context
-                );
-                
-                // Remove loading indicator
-                HideLoadingIndicator();
-                
-                if (response.success)
+                if (m_AutoMode)
                 {
-                    // Show tool calls in debug mode
-                    if (response.toolCalls != null && response.toolCalls.Count > 0)
-                    {
-                        foreach (var toolCall in response.toolCalls)
-                        {
-                            if (m_DebugMode)
-                            {
-                                string args = SerializeArgs(toolCall.arguments);
-                                AddDebugMessage($"🔧 {toolCall.name}({args})", "debug-tool-call");
-                            }
-                        }
-                    }
-                    
-                    // Add assistant response
-                    if (!string.IsNullOrEmpty(response.content))
-                    {
-                        AddAssistantMessage(response.content);
-                        m_Context.AddAssistantMessage(response.content);
-                    }
+                    // Use agentic loop for continuous execution
+                    await ProcessAgenticLoopAsync();
                 }
                 else
                 {
-                    AddSystemMessage($"❌ Error: {response.content}");
+                    // Single-turn execution (original behavior)
+                    await ProcessSingleTurnAsync();
                 }
             }
             catch (Exception ex)
@@ -539,6 +530,135 @@ namespace ChatSystem.Editor
             {
                 m_IsProcessing = false;
                 UpdateSendButtonState();
+            }
+        }
+        
+        /// <summary>
+        /// Agentic loop - continues executing until finish_test is called or max iterations reached.
+        /// </summary>
+        private async Task ProcessAgenticLoopAsync()
+        {
+            int iteration = 0;
+            bool finished = false;
+            
+            while (!finished && iteration < MAX_ITERATIONS)
+            {
+                iteration++;
+                AddDebugMessage($"🔄 Iteration {iteration}/{MAX_ITERATIONS}", "debug-iteration");
+                
+                AgentResponse response = await m_AgentExecutor.ExecuteAgentAsync(
+                    m_AgentConfig, 
+                    m_Context
+                );
+                
+                if (!response.success)
+                {
+                    HideLoadingIndicator();
+                    AddSystemMessage($"❌ Error: {response.content}");
+                    break;
+                }
+                
+                // Show tool calls
+                if (response.toolCalls != null && response.toolCalls.Count > 0)
+                {
+                    foreach (var toolCall in response.toolCalls)
+                    {
+                        if (m_DebugMode)
+                        {
+                            string args = SerializeArgs(toolCall.arguments);
+                            AddDebugMessage($"🔧 {toolCall.name}({args})", "debug-tool-call");
+                        }
+                        
+                        // Check for finish_test to end the loop
+                        if (toolCall.name == "finish_test")
+                        {
+                            bool success = false;
+                            string summary = "Test completed";
+                            
+                            if (toolCall.arguments.TryGetValue("success", out object successVal))
+                            {
+                                success = successVal is bool b ? b : bool.Parse(successVal?.ToString() ?? "false");
+                            }
+                            if (toolCall.arguments.TryGetValue("summary", out object summaryVal))
+                            {
+                                summary = summaryVal?.ToString() ?? summary;
+                            }
+                            
+                            HideLoadingIndicator();
+                            AddSystemMessage($"{(success ? "✅ TEST PASSED" : "❌ TEST FAILED")}\n{summary}\n📊 Completed in {iteration} iterations");
+                            finished = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // Add assistant response to context for next iteration
+                if (!string.IsNullOrEmpty(response.content))
+                {
+                    if (m_DebugMode || finished)
+                    {
+                        AddAssistantMessage(response.content);
+                    }
+                    m_Context.AddAssistantMessage(response.content);
+                }
+                
+                // If no tool calls, the agent has finished responding (no more actions)
+                if (response.toolCalls == null || response.toolCalls.Count == 0)
+                {
+                    HideLoadingIndicator();
+                    AddAssistantMessage(response.content);
+                    AddSystemMessage("⏹️ Agent finished (no more actions)");
+                    break;
+                }
+                
+                // Small delay between iterations for UI update
+                await Task.Delay(100);
+            }
+            
+            if (!finished && iteration >= MAX_ITERATIONS)
+            {
+                HideLoadingIndicator();
+                AddSystemMessage($"⚠️ Max iterations ({MAX_ITERATIONS}) reached without completion");
+            }
+        }
+        
+        /// <summary>
+        /// Single-turn execution (original behavior).
+        /// </summary>
+        private async Task ProcessSingleTurnAsync()
+        {
+            AgentResponse response = await m_AgentExecutor.ExecuteAgentAsync(
+                m_AgentConfig, 
+                m_Context
+            );
+            
+            HideLoadingIndicator();
+            
+            if (response.success)
+            {
+                // Show tool calls in debug mode
+                if (response.toolCalls != null && response.toolCalls.Count > 0)
+                {
+                    foreach (var toolCall in response.toolCalls)
+                    {
+                        if (m_DebugMode)
+                        {
+                            string args = SerializeArgs(toolCall.arguments);
+                            AddDebugMessage($"🔧 {toolCall.name}({args})", "debug-tool-call");
+                        }
+                    }
+                }
+                
+                // Add assistant response
+                if (!string.IsNullOrEmpty(response.content))
+                {
+                    AddAssistantMessage(response.content);
+                    m_Context.AddAssistantMessage(response.content);
+                }
+            }
+            else
+            {
+                AddSystemMessage($"❌ Error: {response.content}");
             }
         }
         

@@ -177,6 +177,12 @@ namespace ChatSystem.Services.Agents
                 }
             }
             
+            // Determine thinking settings from ModelConfig
+            bool enableThinking = agentConfig.modelConfig?.supportsThinking ?? false;
+            ReasoningEffort reasoningEffort = enableThinking 
+                ? (agentConfig.modelConfig?.defaultReasoningEffort ?? ReasoningEffort.Medium)
+                : ReasoningEffort.None;
+            
             return new LLMRequest
             {
                 messages = messages,
@@ -184,7 +190,9 @@ namespace ChatSystem.Services.Agents
                 maxTokens = agentConfig.maxResponseTokens,
                 temperature = agentConfig.modelConfig?.temperature ?? 0.7f,
                 model = agentConfig.modelConfig?.modelName ?? "default",
-                provider = agentConfig.modelConfig?.provider ?? ServiceProvider.Custom
+                provider = agentConfig.modelConfig?.provider ?? ServiceProvider.Custom,
+                enableThinking = enableThinking,
+                reasoningEffort = reasoningEffort
             };
         }
         
