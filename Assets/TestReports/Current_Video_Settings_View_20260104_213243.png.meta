@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 015323448d7987640adba6e01b28ac5e
+guid: b2a587d0225f0ba4a8545c866660973b
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -2168365677105678339
-    second: PedroTalk_0
+      213: -765673446956540788
+    second: Current_Video_Settings_View_20260104_213243_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: PedroTalk_0
+      name: Current_Video_Settings_View_20260104_213243_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 1024
-        height: 1024
+        width: 1920
+        height: 1080
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: df777f8b7ea68e1e0800000000000000
-      internalID: -2168365677105678339
+      spriteID: c8cd4348e08cf55f0800000000000000
+      internalID: -765673446956540788
       vertices: []
       indices: 
       edges: []
@@ -147,8 +147,7 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable:
-      PedroTalk_0: -2168365677105678339
+    nameFileIdTable: {}
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
