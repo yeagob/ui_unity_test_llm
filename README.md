@@ -74,13 +74,105 @@ The record-keeper. It manages the report lifecycle:
 
 ---
 
-## 🗺️ Roadmap: Multi-Agent System (MAS)
+---
 
-We are currently developing a MAS architecture to enable fully autonomous testing:
-- **Planner Agent**: Analyzes the UI and creates a structured test plan.
-- **Executor Agent**: Performs the steps one by one.
-- **Verifier Agent**: Checks if the UI state matches expectations after each action.
+## 🤖 Multi-Agent System (MAS) - ¡Implementado!
+
+El sistema MAS divide el testing inteligente en 3 agentes especializados:
+
+### Arquitectura
+
+```
+            ┌─────────────────────────────────────────┐
+            │         MAS ORCHESTRATOR                │
+            └─────────────────┬───────────────────────┘
+                              │
+         ┌────────────────────┼────────────────────┐
+         │                    │                    │
+         ▼                    ▼                    ▼
+┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+│   PLANNER   │      │  EXECUTOR   │      │  VERIFIER   │
+│   📋        │      │  ⚡         │      │  ✅         │
+└─────────────┘      └─────────────┘      └─────────────┘
+ Crea el plan         Ejecuta acciones    Valida resultados
+```
+
+### Cómo Usar MAS
+
+1. **Abrir ventana MAS**: `Window → LLM → MAS Testing`
+2. **Configurar agentes** (ya precreados en `Assets/Agents/MASAgents/`):
+   - `PlannerAgentConfig`
+   - `ExecutorAgentConfig`
+   - `VerifierAgentConfig`
+3. **Escribir objetivo**: Ej. "Prueba que el botón Play inicia el juego"
+4. **Click en Run Test**
+
+El sistema automáticamente:
+- Analiza la UI actual
+- Genera un plan estructurado
+- Ejecuta cada paso
+- Verifica el resultado
+- Genera reporte final
+
+### Ejemplo de Flujo
+
+```
+Objetivo: "Verificar que el botón Start funciona"
+
+📋 PLANNER crea plan:
+   1. click(StartButton) → "Inicia el juego"
+   2. wait_for_element(GameScene) → "Escena cargada"
+   3. screenshot(game_started) → "Evidencia"
+
+⚡ EXECUTOR paso 1: click("StartButton")
+✅ VERIFIER: {"success": true, "diagnosis": "Juego iniciando"}
+
+⚡ EXECUTOR paso 2: wait_for_element("GameScene", 5)
+✅ VERIFIER: {"success": true, "diagnosis": "GameScene visible"}
+
+📊 RESULTADO: Test PASSED (3/3 pasos)
+```
+
+### Archivos del Sistema
+
+```
+Assets/Scripts/Sentinel/
+├── Core/
+│   ├── MASOrchestrator.cs     # Orquestador principal
+│   └── SentinelAgentLoop.cs   # Loop simple (alternativo)
+├── Models/
+│   └── TestPlan.cs            # Modelo de datos
+├── Services/
+│   ├── UIInspectorService.cs  # Inspecciona UI
+│   ├── UIInteractorService.cs # Ejecuta acciones
+│   └── TestReportService.cs   # Genera reportes
+└── Tools/
+    └── SentinelToolSet.cs     # Herramientas MCP
+
+Assets/Agents/MASAgents/
+├── PlannerAgentConfig.asset   # Config Planner
+├── ExecutorAgentConfig.asset  # Config Executor
+├── VerifierAgentConfig.asset  # Config Verifier
+└── README_MAS_SETUP.md        # Guía detallada
+```
+
+---
+
+## 🎛️ Dos Modos de Testing
+
+### 1. Modo Simple (Agent Chat)
+- `Window → LLM → Agent Chat`
+- Conversación libre con un solo agente
+- Toggle "Auto" para loop automático
+- Ideal para exploración y tests rápidos
+
+### 2. Modo MAS (Multi-Agent)
+- `Window → LLM → MAS Testing`
+- 3 agentes especializados
+- Plan estructurado con verificación
+- Ideal para tests complejos y reproducibles
 
 ---
 
 *Developed with ❤️ as part of the Unity LLM Agentic Coding project.*
+

@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: TESTCONFIG_GUID, type: 3}
+  m_Name: Test_AudioMute
+  m_EditorClassIdentifier: 
+  testName: Mute All Audio
+  objective: Abre el menu de audio y silencia todos los sonidos (musica, efectos, voces)
+  successCriteria: Todos los sliders de audio deben estar en 0 o los toggles de mute activados
+  plannerAgent: {fileID: 11400000, guid: PLANNER_GUID, type: 2}
+  executorAgent: {fileID: 11400000, guid: EXECUTOR_GUID, type: 2}
+  verifierAgent: {fileID: 11400000, guid: VERIFIER_GUID, type: 2}
+  maxPlanSteps: 12
+  maxRetries: 2
+  screenshotOnEachStep: 0
+  predefinedSteps: []
+  lastRunTime: 0
+  lastRunResult: 
+  lastRunPassedSteps: 0
+  lastRunFailedSteps: 0
