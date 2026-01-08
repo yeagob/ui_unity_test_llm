@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d26f5435bdce73e4284f6ab9f8e4cc76, type: 3}
+  m_Name: Test_StartNewGame
+  m_EditorClassIdentifier: 
+  testName: Start New Game
+  objective: From the main menu, start a new game and verify that the first game scene loads correctly
+  successCriteria: The game should start and display the game scene or initial tutorial
+  plannerAgent: {fileID: 11400000, guid: ac84d426bb9873847a5a08dc3dd2f042, type: 2}
+  executorAgent: {fileID: 11400000, guid: 729178533e46727428db7e3b65e67709, type: 2}
+  verifierAgent: {fileID: 11400000, guid: 1aef0de81ddde7c42b2a5afe99f47b04, type: 2}
+  maxPlanSteps: 10
+  maxRetries: 3
+  screenshotOnEachStep: 1
+  predefinedSteps: []
+  lastRunTime: 0
+  lastRunResult: 
+  lastRunPassedSteps: 0
+  lastRunFailedSteps: 0

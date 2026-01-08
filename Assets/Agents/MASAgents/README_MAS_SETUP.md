@@ -20,9 +20,31 @@ MASOrchestrator
         ├── Executor Agent → Ejecuta la acción
         └── Verifier Agent → Valida el resultado
             ├── PASS → Siguiente paso
-            ├── RETRY → Reintentar (máx 3 veces)
+            ├── RETRY → Reintentar paso (máx 3 veces)
             └── ABORT → Terminar test
+
+    Si TEST FALLA → 🔄 RETRY CON ANÁLISIS (hasta 3 intentos)
+        ├── Planner recibe contexto completo del fallo
+        ├── Analiza qué salió mal
+        └── Crea NUEVO plan con diferente estrategia
 ```
+
+### 🔄 Sistema de Retry con Análisis
+
+Si un test falla, el sistema automáticamente:
+
+1. **Registra el intento fallido** con detalles de cada paso
+2. **Pasa el contexto completo al Planner**:
+   - Pasos que funcionaron ✅
+   - Pasos que fallaron ❌ con diagnóstico
+   - Estado actual de la UI
+3. **El Planner analiza el fallo** y explica qué salió mal
+4. **Genera un NUEVO plan** con estrategia diferente
+5. **Repite hasta 3 intentos máximo**
+
+Esto permite que el agente aprenda de sus errores y pruebe diferentes enfoques.
+
+
 
 ## Cómo Crear los Agentes
 

@@ -136,7 +136,7 @@ namespace Sentinel.Editor
             m_ObjectiveInput.style.marginTop = 5;
             m_ObjectiveInput.style.marginBottom = 10;
             // Load persisted objective
-            m_ObjectiveInput.value = EditorPrefs.GetString(PREF_KEY_OBJECTIVE, "Prueba que el botón Play inicia el juego correctamente");
+            m_ObjectiveInput.value = EditorPrefs.GetString(PREF_KEY_OBJECTIVE, "Test that the Play button starts the game correctly");
             m_ObjectiveInput.RegisterValueChangedCallback(evt => EditorPrefs.SetString(PREF_KEY_OBJECTIVE, evt.newValue));
             root.Add(m_ObjectiveInput);
             
@@ -332,6 +332,7 @@ namespace Sentinel.Editor
             m_Orchestrator.OnStepStarted += OnStepStarted;
             m_Orchestrator.OnStepCompleted += OnStepCompleted;
             m_Orchestrator.OnTestCompleted += OnTestCompleted;
+            m_Orchestrator.OnRetryWithNewStrategy += OnRetryWithNewStrategy;
             
             try
             {
@@ -444,6 +445,21 @@ namespace Sentinel.Editor
         {
             m_ProgressBar.value = m_ProgressBar.highValue;
             m_TestEndTime = DateTime.Now;
+        }
+        
+        private void OnRetryWithNewStrategy(int attempt, string analysis)
+        {
+            // Clear previous plan display for new attempt
+            m_PlanContainer.Clear();
+            
+            Label retryLabel = new Label($"🔄 Attempt {attempt}/3 - Analyzing failure and creating new strategy...");
+            retryLabel.style.color = new Color(1f, 0.8f, 0.3f);
+            retryLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            retryLabel.style.marginBottom = 10;
+            m_PlanContainer.Add(retryLabel);
+            
+            m_ProgressBar.value = 0;
+            m_StatusLabel.text = $"Retry {attempt}/3 - Creating new plan...";
         }
         
         private void AddLog(string message, Color color)

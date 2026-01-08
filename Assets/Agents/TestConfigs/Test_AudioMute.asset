@@ -9,15 +9,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: TESTCONFIG_GUID, type: 3}
+  m_Script: {fileID: 11500000, guid: d26f5435bdce73e4284f6ab9f8e4cc76, type: 3}
   m_Name: Test_AudioMute
   m_EditorClassIdentifier: 
   testName: Mute All Audio
-  objective: Abre el menu de audio y silencia todos los sonidos (musica, efectos, voces)
-  successCriteria: Todos los sliders de audio deben estar en 0 o los toggles de mute activados
-  plannerAgent: {fileID: 11400000, guid: PLANNER_GUID, type: 2}
-  executorAgent: {fileID: 11400000, guid: EXECUTOR_GUID, type: 2}
-  verifierAgent: {fileID: 11400000, guid: VERIFIER_GUID, type: 2}
+  objective: Open the audio menu and mute all sounds (music, effects, voices)
+  successCriteria: All audio sliders should be at 0 or mute toggles should be enabled
+  plannerAgent: {fileID: 11400000, guid: ac84d426bb9873847a5a08dc3dd2f042, type: 2}
+  executorAgent: {fileID: 11400000, guid: 729178533e46727428db7e3b65e67709, type: 2}
+  verifierAgent: {fileID: 11400000, guid: 1aef0de81ddde7c42b2a5afe99f47b04, type: 2}
   maxPlanSteps: 12
   maxRetries: 2
   screenshotOnEachStep: 0

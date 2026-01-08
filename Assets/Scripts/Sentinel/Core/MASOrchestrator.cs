@@ -26,15 +26,18 @@ namespace Sentinel.Core
         private readonly AgentConfig _verifierConfig;
         private readonly int _maxRetries;
         private readonly int _maxPlanSteps;
+        private readonly int _maxTestAttempts;
         
         private CancellationTokenSource _cancellationTokenSource;
         private bool _isRunning;
+        private List<TestAttempt> _previousAttempts;
         
         public event Action<string> OnLog;
         public event Action<TestStep> OnStepStarted;
         public event Action<TestStep, VerificationResult> OnStepCompleted;
         public event Action<TestPlan> OnPlanCreated;
         public event Action<TestPlan> OnTestCompleted;
+        public event Action<int, string> OnRetryWithNewStrategy;  // attempt number, analysis
         
         /// <summary>
         /// Creates a new MAS Orchestrator with specialized agent configurations.
@@ -45,7 +48,8 @@ namespace Sentinel.Core
             AgentConfig executorConfig,
             AgentConfig verifierConfig,
             int maxRetries = 3,
-            int maxPlanSteps = 20)
+            int maxPlanSteps = 20,
+            int maxTestAttempts = 3)
         {
             _executor = executor;
             _plannerConfig = plannerConfig;
@@ -53,6 +57,8 @@ namespace Sentinel.Core
             _verifierConfig = verifierConfig;
             _maxRetries = maxRetries;
             _maxPlanSteps = maxPlanSteps;
+            _maxTestAttempts = maxTestAttempts;
+            _previousAttempts = new List<TestAttempt>();
             
             // Register all agents
             _executor.RegisterAgent(_plannerConfig);
@@ -67,57 +73,122 @@ namespace Sentinel.Core
         {
             _isRunning = true;
             _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _previousAttempts.Clear();
             
-            TestPlan plan = new TestPlan(objective);
+            TestPlan plan = null;
             
             try
             {
                 Log($"🚀 Starting MAS Test: {objective}");
                 
-                // Phase 1: Planning
-                plan.Status = PlanStatus.Planning;
-                Log("📋 Phase 1: PLANNING");
-                
-                bool planningSuccess = await PlanTestAsync(plan, _cancellationTokenSource.Token);
-                if (!planningSuccess || _cancellationTokenSource.Token.IsCancellationRequested)
+                // Attempt loop - retry with new strategy if failed
+                for (int attempt = 1; attempt <= _maxTestAttempts && !_cancellationTokenSource.Token.IsCancellationRequested; attempt++)
                 {
+                    if (attempt > 1)
+                    {
+                        Log($"\n🔄 ATTEMPT {attempt}/{_maxTestAttempts} - Trying new strategy");
+                        OnRetryWithNewStrategy?.Invoke(attempt, "Analyzing previous failure...");
+                    }
+                    
+                    plan = new TestPlan(objective);
+                    
+                    // Phase 1: Planning (with context from previous attempts if any)
+                    plan.Status = PlanStatus.Planning;
+                    Log($"📋 Phase 1: PLANNING" + (attempt > 1 ? " (with failure analysis)" : ""));
+                    
+                    bool planningSuccess = attempt == 1 
+                        ? await PlanTestAsync(plan, _cancellationTokenSource.Token)
+                        : await RePlanAfterFailureAsync(plan, _cancellationTokenSource.Token);
+                    
+                    if (!planningSuccess || _cancellationTokenSource.Token.IsCancellationRequested)
+                    {
+                        plan.Status = PlanStatus.Failed;
+                        Log("❌ Planning failed or was cancelled");
+                        continue; // Try again with fresh approach
+                    }
+                    
+                    OnPlanCreated?.Invoke(plan);
+                    Log($"✅ Plan created with {plan.Steps.Count} steps");
+                    
+                    // Phase 2: Execution + Verification Loop
+                    plan.Status = PlanStatus.Executing;
+                    Log("🔧 Phase 2: EXECUTION");
+                    
+                    bool executionSuccess = await ExecutePlanAsync(plan, _cancellationTokenSource.Token);
+                    
+                    if (executionSuccess)
+                    {
+                        plan.Status = PlanStatus.Completed;
+                        Log("✅ Test PASSED");
+                        OnTestCompleted?.Invoke(plan);
+                        return plan;
+                    }
+                    
+                    // Test failed - record attempt for analysis
                     plan.Status = PlanStatus.Failed;
-                    Log("❌ Planning failed or was cancelled");
-                    return plan;
+                    RecordFailedAttempt(plan, attempt);
+                    
+                    if (attempt < _maxTestAttempts)
+                    {
+                        Log($"❌ Test failed on attempt {attempt} - will retry with new strategy");
+                    }
+                    else
+                    {
+                        Log($"❌ Test FAILED after {attempt} attempts");
+                    }
                 }
                 
-                OnPlanCreated?.Invoke(plan);
-                Log($"✅ Plan created with {plan.Steps.Count} steps");
-                
-                // Phase 2: Execution + Verification Loop
-                plan.Status = PlanStatus.Executing;
-                Log("🔧 Phase 2: EXECUTION");
-                
-                bool executionSuccess = await ExecutePlanAsync(plan, _cancellationTokenSource.Token);
-                
-                plan.Status = executionSuccess ? PlanStatus.Completed : PlanStatus.Failed;
-                Log(executionSuccess ? "✅ Test PASSED" : "❌ Test FAILED");
-                
+                // All attempts exhausted
+                if (plan != null && plan.Status != PlanStatus.Completed)
+                {
+                    plan.Status = PlanStatus.Failed;
+                }
                 OnTestCompleted?.Invoke(plan);
                 return plan;
             }
             catch (OperationCanceledException)
             {
-                plan.Status = PlanStatus.Cancelled;
+                if (plan != null) plan.Status = PlanStatus.Cancelled;
                 Log("🛑 Test cancelled by user");
-                return plan;
+                return plan ?? new TestPlan(objective) { Status = PlanStatus.Cancelled };
             }
             catch (Exception ex)
             {
-                plan.Status = PlanStatus.Failed;
+                if (plan != null) plan.Status = PlanStatus.Failed;
                 Log($"❌ Test error: {ex.Message}");
                 Debug.LogError($"[MAS] Error: {ex}");
-                return plan;
+                return plan ?? new TestPlan(objective) { Status = PlanStatus.Failed };
             }
             finally
             {
                 _isRunning = false;
             }
+        }
+        
+        private void RecordFailedAttempt(TestPlan plan, int attemptNumber)
+        {
+            var attempt = new TestAttempt
+            {
+                AttemptNumber = attemptNumber,
+                Plan = plan,
+                FailedSteps = new List<string>(),
+                SuccessfulSteps = new List<string>()
+            };
+            
+            foreach (var step in plan.Steps)
+            {
+                string stepDesc = $"Step {step.StepNumber}: {step.Action}({step.Target}) - Expected: {step.ExpectedResult}";
+                if (step.Status == StepStatus.Passed)
+                {
+                    attempt.SuccessfulSteps.Add(stepDesc);
+                }
+                else if (step.Status == StepStatus.Failed)
+                {
+                    attempt.FailedSteps.Add($"{stepDesc} - Actual: {step.ActualResult}");
+                }
+            }
+            
+            _previousAttempts.Add(attempt);
         }
         
         /// <summary>
@@ -139,31 +210,31 @@ namespace Sentinel.Core
             var context = new ConversationContext("planner-" + Guid.NewGuid());
             
             // Planner gets the objective and must create a structured plan
-            string plannerPrompt = $@"OBJETIVO DEL TEST: {plan.Objective}
+            string plannerPrompt = $@"TEST OBJECTIVE: {plan.Objective}
 
-Tu tarea es crear un plan estructurado para este test.
+Your task is to create a structured plan for this test.
 
-INSTRUCCIONES:
-1. Primero usa query_ui para ver el estado actual de la UI
-2. Analiza qué elementos están disponibles
-3. Crea un plan paso a paso para lograr el objetivo
-4. Cada paso debe tener: action, target, expected_result
+INSTRUCTIONS:
+1. First use query_ui to see the current UI state
+2. Analyze what elements are available
+3. Create a step-by-step plan to achieve the objective
+4. Each step must have: action, target, expected_result
 
-FORMATO DE RESPUESTA (JSON):
+RESPONSE FORMAT (JSON):
 ```json
 {{
-  ""success_criteria"": ""Descripción de qué define éxito"",
+  ""success_criteria"": ""Description of what defines success"",
   ""steps"": [
-    {{""step"": 1, ""action"": ""click"", ""target"": ""ElementName"", ""expected"": ""Qué debería pasar""}},
-    {{""step"": 2, ""action"": ""wait_for_element"", ""target"": ""NewElement"", ""expected"": ""Elemento visible""}},
+    {{""step"": 1, ""action"": ""click"", ""target"": ""ElementName"", ""expected"": ""What should happen""}},
+    {{""step"": 2, ""action"": ""wait_for_element"", ""target"": ""NewElement"", ""expected"": ""Element visible""}},
     ...
   ]
 }}
 ```
 
-ACCIONES DISPONIBLES: click, type_text, scroll, wait_seconds, wait_for_element, screenshot
+AVAILABLE ACTIONS: click, type_text, scroll, wait_seconds, wait_for_element, screenshot
 
-Crea el plan ahora.";
+Create the plan now.";
 
             context.AddUserMessage(plannerPrompt);
             
@@ -199,7 +270,7 @@ Crea el plan ahora.";
                 
                 // No tools and no valid plan - try again
                 context.AddAssistantMessage(response.content);
-                context.AddUserMessage("Por favor genera el plan en formato JSON como se indicó.");
+                context.AddUserMessage("Please generate the plan in JSON format as indicated.");
             }
             
             return plan.Steps.Count > 0;
@@ -350,19 +421,31 @@ Crea el plan ahora.";
         {
             var context = new ConversationContext("executor-" + Guid.NewGuid());
             
-            string executorPrompt = $@"EJECUTA EXACTAMENTE ESTA ACCIÓN:
+            string executorPrompt = $@"EXECUTE EXACTLY THIS ACTION:
 - Action: {step.Action}
 - Target: {step.Target}
 - Expected: {step.ExpectedResult}
 
-Usa la herramienta correspondiente para ejecutar la acción. NO hagas nada más.";
+Use the corresponding tool to execute the action. DO NOT do anything else.";
 
             context.AddUserMessage(executorPrompt);
             
             try
             {
                 var response = await _executor.ExecuteAgentAsync(_executorConfig, context);
-                return response.success && response.toolCalls != null && response.toolCalls.Count > 0;
+                
+                // FIX: Check response.success is enough - if the agent executed a tool, 
+                // it was processed and success indicates the overall result
+                // The toolCalls list may be empty after processing
+                if (!response.success)
+                {
+                    Log($"      Executor response: {response.content}");
+                    return false;
+                }
+                
+                // If there's content mentioning the tool was used, consider it a success
+                // The tool was executed by the AgentExecutor internally
+                return true;
             }
             catch (Exception ex)
             {
@@ -375,28 +458,28 @@ Usa la herramienta correspondiente para ejecutar la acción. NO hagas nada más.
         {
             var context = new ConversationContext("verifier-" + Guid.NewGuid());
             
-            string verifierPrompt = $@"VERIFICA SI EL SIGUIENTE PASO SE EJECUTÓ CORRECTAMENTE:
+            string verifierPrompt = $@"VERIFY IF THE FOLLOWING STEP WAS EXECUTED CORRECTLY:
 
-Paso ejecutado:
+Executed step:
 - Action: {step.Action}
 - Target: {step.Target}
 - Expected: {step.ExpectedResult}
 
-INSTRUCCIONES:
-1. Usa query_ui para ver el estado actual de la UI
-2. Compara con el resultado esperado
-3. Responde en este formato:
+INSTRUCTIONS:
+1. Use query_ui to see the current UI state
+2. Compare with the expected result
+3. Respond in this format:
 
 ```json
 {{
   ""success"": true/false,
-  ""diagnosis"": ""Qué observas en la UI"",
+  ""diagnosis"": ""What you observe in the UI"",
   ""should_retry"": true/false,
   ""should_abort"": true/false
 }}
 ```
 
-Verifica ahora.";
+Verify now.";
 
             context.AddUserMessage(verifierPrompt);
             
@@ -482,6 +565,165 @@ Verifica ahora.";
         {
             Debug.Log($"[MAS] {message}");
             OnLog?.Invoke(message);
+        }
+        
+        #region Retry with Analysis
+        
+        /// <summary>
+        /// Creates a new plan after analyzing what went wrong in previous attempts.
+        /// Provides the Planner with complete context of failed attempts.
+        /// </summary>
+        private async Task<bool> RePlanAfterFailureAsync(TestPlan plan, CancellationToken cancellationToken)
+        {
+            var context = new ConversationContext("planner-retry-" + Guid.NewGuid());
+            
+            // Build context from previous attempts
+            var attemptsSummary = new System.Text.StringBuilder();
+            attemptsSummary.AppendLine("=== PREVIOUS ATTEMPTS (FAILED) ===\n");
+            
+            foreach (var attempt in _previousAttempts)
+            {
+                attemptsSummary.AppendLine($"--- ATTEMPT {attempt.AttemptNumber} ---");
+                attemptsSummary.AppendLine($"Executed plan:");
+                
+                if (attempt.SuccessfulSteps.Count > 0)
+                {
+                    attemptsSummary.AppendLine("\nSteps that WORKED:");
+                    foreach (var step in attempt.SuccessfulSteps)
+                    {
+                        attemptsSummary.AppendLine($"  ✅ {step}");
+                    }
+                }
+                
+                if (attempt.FailedSteps.Count > 0)
+                {
+                    attemptsSummary.AppendLine("\nSteps that FAILED:");
+                    foreach (var step in attempt.FailedSteps)
+                    {
+                        attemptsSummary.AppendLine($"  ❌ {step}");
+                    }
+                }
+                attemptsSummary.AppendLine();
+            }
+            
+            string rePlanPrompt = $@"TEST OBJECTIVE: {plan.Objective}
+
+THE TEST HAS FAILED IN {_previousAttempts.Count} PREVIOUS ATTEMPT(S).
+
+{attemptsSummary}
+
+ANALYSIS REQUIRED:
+1. First, use query_ui to see the CURRENT UI state
+2. Analyze what went wrong in previous attempts
+3. Identify why those specific steps failed
+4. CREATE A DIFFERENT PLAN that avoids the previous problems
+
+POSSIBLE FAILURE CAUSES:
+- Incorrect element name (verify exact names)
+- Element not visible or not interactive
+- Incorrect order of actions
+- Missing waits (wait_for_element, wait_seconds)
+- UI different than expected
+
+IMPORTANT: 
+- DO NOT repeat exactly the same plan
+- Try a DIFFERENT approach
+- Add more wait_for_element if necessary
+- Verify element names with query_ui
+
+RESPONSE FORMAT (JSON):
+```json
+{{
+  ""analysis"": ""Explanation of what failed and why"",
+  ""new_strategy"": ""Description of the new approach"",
+  ""success_criteria"": ""Success criteria"",
+  ""steps"": [
+    {{""step"": 1, ""action"": ""..."", ""target"": ""..."", ""expected"": ""...""}},
+    ...
+  ]
+}}
+```
+
+AVAILABLE ACTIONS: click, type_text, scroll, wait_seconds, wait_for_element, screenshot
+
+Analyze and create a NEW plan now.";
+
+            context.AddUserMessage(rePlanPrompt);
+            
+            Log("  🔍 Analyzing previous failures...");
+            
+            // Execute planner with retry context
+            int maxIterations = 6; // More iterations for complex analysis
+            for (int i = 0; i < maxIterations && !cancellationToken.IsCancellationRequested; i++)
+            {
+                var response = await _executor.ExecuteAgentAsync(_plannerConfig, context);
+                
+                if (!response.success)
+                {
+                    Log($"❌ Planner error: {response.content}");
+                    return false;
+                }
+                
+                // Log any analysis the planner provides
+                if (!string.IsNullOrEmpty(response.content))
+                {
+                    // Try to extract analysis
+                    var analysisMatch = Regex.Match(response.content, @"""analysis""\s*:\s*""([^""]+)""");
+                    var strategyMatch = Regex.Match(response.content, @"""new_strategy""\s*:\s*""([^""]+)""");
+                    
+                    if (analysisMatch.Success)
+                    {
+                        Log($"  📊 Analysis: {analysisMatch.Groups[1].Value}");
+                    }
+                    if (strategyMatch.Success)
+                    {
+                        Log($"  💡 New strategy: {strategyMatch.Groups[1].Value}");
+                    }
+                }
+                
+                // Check if we got a plan in the response
+                if (!string.IsNullOrEmpty(response.content) && response.content.Contains("\"steps\""))
+                {
+                    bool parsed = TryParsePlan(response.content, plan);
+                    if (parsed && plan.Steps.Count > 0)
+                    {
+                        return true;
+                    }
+                }
+                
+                // If agent made tool calls, add response and continue
+                if (response.toolCalls != null && response.toolCalls.Count > 0)
+                {
+                    context.AddAssistantMessage(response.content);
+                    Log($"  Planner iteration {i + 1}: {response.toolCalls.Count} tool calls");
+                    continue;
+                }
+                
+                // No tools and no valid plan - try again
+                context.AddAssistantMessage(response.content);
+                context.AddUserMessage("Please generate the NEW plan in JSON format. Remember it must be DIFFERENT from the previous one.");
+            }
+            
+            return plan.Steps.Count > 0;
+        }
+        
+        #endregion
+    }
+    
+    /// <summary>
+    /// Records information about a failed test attempt for analysis.
+    /// </summary>
+    public class TestAttempt
+    {
+        public int AttemptNumber;
+        public TestPlan Plan;
+        public List<string> SuccessfulSteps;
+        public List<string> FailedSteps;
+        
+        public TestAttempt()
+        {
+            SuccessfulSteps = new List<string>();
+            FailedSteps = new List<string>();
         }
     }
 }

@@ -9,15 +9,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: TESTCONFIG_GUID, type: 3}
+  m_Script: {fileID: 11500000, guid: d26f5435bdce73e4284f6ab9f8e4cc76, type: 3}
   m_Name: Test_GraphicsHighest
   m_EditorClassIdentifier: 
   testName: Set Graphics to Highest
-  objective: Abre el menu de opciones y configura todos los graficos al maximo (Ultra/Highest)
-  successCriteria: Todas las opciones graficas deben estar en su valor maximo
-  plannerAgent: {fileID: 11400000, guid: PLANNER_GUID, type: 2}
-  executorAgent: {fileID: 11400000, guid: EXECUTOR_GUID, type: 2}
-  verifierAgent: {fileID: 11400000, guid: VERIFIER_GUID, type: 2}
+  objective: Open the settings menu and set all graphics options to maximum (Ultra/Highest)
+  successCriteria: All graphics options should be at their maximum value
+  plannerAgent: {fileID: 11400000, guid: ac84d426bb9873847a5a08dc3dd2f042, type: 2}
+  executorAgent: {fileID: 11400000, guid: 729178533e46727428db7e3b65e67709, type: 2}
+  verifierAgent: {fileID: 11400000, guid: 1aef0de81ddde7c42b2a5afe99f47b04, type: 2}
   maxPlanSteps: 15
   maxRetries: 2
   screenshotOnEachStep: 0

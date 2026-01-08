@@ -420,6 +420,12 @@ namespace Sentinel.Editor
                     result.LogEntries.Add($"[{DateTime.Now:HH:mm:ss}] {msg}");
                 };
                 
+                // Log retry attempts
+                m_Orchestrator.OnRetryWithNewStrategy += (attempt, analysis) => {
+                    result.LogEntries.Add($"[{DateTime.Now:HH:mm:ss}] 🔄 RETRY {attempt}/3 - Analyzing failure and trying new strategy");
+                    AddLog($"      🔄 Test retry {attempt}/3 - New strategy", new Color(1f, 0.8f, 0.3f));
+                };
+                
                 var plan = await m_Orchestrator.RunTestAsync(testConfig.objective);
                 
                 int stepsPassed = 0, stepsFailed = 0;

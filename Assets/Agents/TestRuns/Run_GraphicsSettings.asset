@@ -9,13 +9,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: TESTRUN_GUID, type: 3}
+  m_Script: {fileID: 11500000, guid: 7280b5a4e91f31e4e86ad48f484e6e3f, type: 3}
   m_Name: Run_GraphicsSettings
   m_EditorClassIdentifier: 
   runName: Graphics Settings Suite
-  description: Pruebas completas de configuracion de graficos - verifica que se pueden cambiar todas las opciones graficas
+  description: Complete graphics configuration tests - verifies that all graphics options can be changed
   category: Settings
-  tests: []
+  tests:
+  - {fileID: 11400000, guid: 96d8c4727ee4b4748bb96e34dc3a4d5f, type: 2}
+  - {fileID: 11400000, guid: f0043e0d295ee0246a94c2f5bd7ba9ce, type: 2}
   continueOnFailure: 1
   delayBetweenTests: 2
   screenshotPerTest: 1
