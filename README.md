@@ -158,7 +158,8 @@ Assets/Agents/MASAgents/
 
 ---
 
-## 🎛️ Dos Modos de Testing
+
+## 🎛️ Tres Modos de Testing
 
 ### 1. Modo Simple (Agent Chat)
 - `Window → LLM → Agent Chat`
@@ -171,6 +172,51 @@ Assets/Agents/MASAgents/
 - 3 agentes especializados
 - Plan estructurado con verificación
 - Ideal para tests complejos y reproducibles
+
+### 3. Modo Test Runner (Suites)
+- `Window → LLM → Test Runner`
+- Ejecuta múltiples tests secuencialmente
+- Genera reportes Markdown detallados
+- Ideal para regression testing y CI/CD
+
+```
+TestRunConfiguration (Suite)
+├── Test 1: Graphics Highest
+├── Test 2: Graphics Lowest
+├── Test 3: Audio Settings
+└── Test 4: Start New Game
+
+→ Ejecuta todos y genera: TestReports/Run_2026-01-08.md
+```
+
+---
+
+## 📁 Estructura de Assets
+
+```
+Assets/Agents/
+├── MASAgents/           # Configuraciones de agentes MAS
+│   ├── PlannerAgentConfig.asset
+│   ├── ExecutorAgentConfig.asset
+│   └── VerifierAgentConfig.asset
+│
+├── TestConfigs/         # Tests individuales
+│   ├── Test_GraphicsHighest.asset
+│   ├── Test_GraphicsLowest.asset
+│   └── ...
+│
+├── TestRuns/            # Suites de tests
+│   ├── Run_GraphicsSettings.asset
+│   └── Run_FullSettingsSuite.asset
+│
+└── Prompts/MAS/         # Prompts especializados
+    ├── PlannerAgentPrompt.asset
+    ├── ExecutorAgentPrompt.asset
+    └── VerifierAgentPrompt.asset
+
+Assets/TestReports/      # Reportes generados
+└── *.md
+```
 
 ---
 
