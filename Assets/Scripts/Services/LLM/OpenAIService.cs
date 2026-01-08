@@ -222,8 +222,9 @@ namespace ChatSystem.Services.LLM
             stringBuilder.Append($"\"model\":\"{request.model}\",");
             stringBuilder.Append($"\"temperature\":{request.temperature.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}");
             
-            // Add reasoning support for compatible models (o1, GPT-5.x)
-            if (request.enableThinking && request.reasoningEffort != ReasoningEffort.None)
+            // Add reasoning support ONLY for compatible models (o1, o3, o4-mini family)
+            // Models like gpt-4.x do NOT support reasoning_effort parameter
+            if (request.enableThinking && request.reasoningEffort != ReasoningEffort.None && SupportsReasoningEffort(request.model))
             {
                 string effortValue = GetReasoningEffortString(request.reasoningEffort);
                 stringBuilder.Append($",\"reasoning_effort\":\"{effortValue}\"");
@@ -236,6 +237,26 @@ namespace ChatSystem.Services.LLM
             stringBuilder.Append("}");
             
             return stringBuilder.ToString();
+        }
+        
+        /// <summary>
+        /// Checks if the model supports the reasoning_effort parameter.
+        /// Only OpenAI "o" family models (o1, o3, o4-mini, etc.) support this.
+        /// </summary>
+        private static bool SupportsReasoningEffort(string modelName)
+        {
+            if (string.IsNullOrEmpty(modelName)) return false;
+            
+            string lower = modelName.ToLowerInvariant();
+            
+            // o1, o3, o4-mini family support reasoning_effort
+            // Pattern: starts with "o" followed by a digit (o1, o3, o4, o1-preview, o1-mini, etc.)
+            if (lower.StartsWith("o") && lower.Length > 1 && char.IsDigit(lower[1]))
+            {
+                return true;
+            }
+            
+            return false;
         }
         
         private static string GetReasoningEffortString(ReasoningEffort effort)

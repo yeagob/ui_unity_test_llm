@@ -20,5 +20,7 @@ MonoBehaviour:
   topP: 0.9
   presencePenalty: 0
   frequencyPenalty: 0
+  supportsThinking: 1
+  defaultReasoningEffort: 2
   costPerInputToken: 0.0001
   costPerOutputToken: 0.0002

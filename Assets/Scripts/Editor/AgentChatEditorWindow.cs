@@ -26,6 +26,7 @@ namespace ChatSystem.Editor
         private Button m_ClearButton;
         private VisualElement m_ToolStatus;
         private Label m_ToolStatusLabel;
+        private Button m_StopButton;
         private ScrollView m_MessagesScroll;
         private Toggle m_DebugToggle;
         private Toggle m_AutoModeToggle;
@@ -36,6 +37,7 @@ namespace ChatSystem.Editor
         private AgentExecutor m_AgentExecutor;
         private ConversationContext m_Context;
         private bool m_IsProcessing;
+        private bool m_StopRequested;
         private bool m_DebugMode = true;
         private bool m_AutoMode = false;
         private const int MAX_MESSAGE_LENGTH = 4000;
@@ -114,6 +116,34 @@ namespace ChatSystem.Editor
             {
                 m_ClearButton.clicked += OnClearClicked;
                 m_ClearButton.tooltip = "Clear conversation";
+            }
+            
+            // Setup stop button
+            m_StopButton = rootVisualElement.Q<Button>("stop-button");
+            if (m_StopButton == null)
+            {
+                // Create stop button if not in UXML
+                m_StopButton = new Button(OnStopClicked);
+                m_StopButton.name = "stop-button";
+                m_StopButton.text = "⏹ Stop";
+                m_StopButton.tooltip = "Stop the current agent loop";
+                m_StopButton.style.display = DisplayStyle.None;
+                m_StopButton.style.backgroundColor = new Color(0.8f, 0.2f, 0.2f);
+                m_StopButton.style.color = Color.white;
+                m_StopButton.style.marginLeft = 8;
+                m_StopButton.style.paddingLeft = 8;
+                m_StopButton.style.paddingRight = 8;
+                
+                // Insert after clear button
+                if (m_ClearButton?.parent != null)
+                {
+                    m_ClearButton.parent.Add(m_StopButton);
+                }
+            }
+            else
+            {
+                m_StopButton.clicked += OnStopClicked;
+                m_StopButton.style.display = DisplayStyle.None;
             }
             
             // Setup input field with all event handlers
@@ -414,6 +444,15 @@ namespace ChatSystem.Editor
             AddSystemMessage("🧹 Conversation cleared.");
         }
         
+        private void OnStopClicked()
+        {
+            if (!m_IsProcessing) return;
+            
+            m_StopRequested = true;
+            AddSystemMessage("⏹️ Stop requested - waiting for current operation to finish...");
+            Debug.Log("[AgentChat] Stop requested by user");
+        }
+        
         private void OnInputKeyDown(KeyDownEvent evt)
         {
             // Ctrl+Enter or Shift+Enter = new line (let it through)
@@ -497,7 +536,14 @@ namespace ChatSystem.Editor
         private async Task ProcessAgentResponseAsync()
         {
             m_IsProcessing = true;
+            m_StopRequested = false;
             UpdateSendButtonState();
+            
+            // Show stop button for auto mode
+            if (m_AutoMode && m_StopButton != null)
+            {
+                m_StopButton.style.display = DisplayStyle.Flex;
+            }
             
             // Show loading indicator
             ShowLoadingIndicator();
@@ -529,7 +575,14 @@ namespace ChatSystem.Editor
             finally
             {
                 m_IsProcessing = false;
+                m_StopRequested = false;
                 UpdateSendButtonState();
+                
+                // Hide stop button
+                if (m_StopButton != null)
+                {
+                    m_StopButton.style.display = DisplayStyle.None;
+                }
             }
         }
         
@@ -541,7 +594,7 @@ namespace ChatSystem.Editor
             int iteration = 0;
             bool finished = false;
             
-            while (!finished && iteration < MAX_ITERATIONS)
+            while (!finished && iteration < MAX_ITERATIONS && !m_StopRequested)
             {
                 iteration++;
                 AddDebugMessage($"🔄 Iteration {iteration}/{MAX_ITERATIONS}", "debug-iteration");
@@ -619,6 +672,11 @@ namespace ChatSystem.Editor
             {
                 HideLoadingIndicator();
                 AddSystemMessage($"⚠️ Max iterations ({MAX_ITERATIONS}) reached without completion");
+            }
+            else if (!finished && m_StopRequested)
+            {
+                HideLoadingIndicator();
+                AddSystemMessage($"🛑 Stopped by user after {iteration} iterations");
             }
         }
         
