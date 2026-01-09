@@ -14,9 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   agentId: mas_planner
   agentName: MAS Planner Agent
-  description: Creates structured test plans by analyzing UI state. Only observes, never executes actions.
-  providerConfig: {fileID: 11400000, guid: 67f7ec96dc639b94f9bd2ab55f229885, type: 2}
-  modelConfig: {fileID: 11400000, guid: 450ee2b7193e37542b61e1df3af89c13, type: 2}
+  description: Creates structured test plans by analyzing UI state. Only observes,
+    never executes actions.
+  providerConfig: {fileID: 11400000, guid: aa8ef07821d96dd469f4dfa6e7b49c3b, type: 2}
+  modelConfig: {fileID: 11400000, guid: 677372b95491cd94eaa579ac3701d33f, type: 2}
   systemPrompt: {fileID: 11400000, guid: 02f9ce31854d8c64dbef9631249ef76c, type: 2}
   contextPrompts: []
   availableTools:

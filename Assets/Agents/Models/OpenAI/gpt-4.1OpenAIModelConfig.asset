@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1f39ca0673d533645be39d99e7636e96, type: 3}
+  m_Name: gpt-4.1OpenAIModelConfig
+  m_EditorClassIdentifier: 
+  modelName: gpt-4.1
+  provider: 0
+  modelVersion: gpt-4.1
+  temperature: 0.5
+  maxTokens: 2048
+  topP: 0.2
+  presencePenalty: 0
+  frequencyPenalty: 0
+  costPerInputToken: 2
+  costPerOutputToken: 8

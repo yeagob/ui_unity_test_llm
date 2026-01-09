@@ -333,6 +333,7 @@ namespace Sentinel.Editor
             m_Orchestrator.OnStepCompleted += OnStepCompleted;
             m_Orchestrator.OnTestCompleted += OnTestCompleted;
             m_Orchestrator.OnRetryWithNewStrategy += OnRetryWithNewStrategy;
+            m_Orchestrator.OnMidExecutionReplan += OnMidExecutionReplan;
             
             try
             {
@@ -460,6 +461,25 @@ namespace Sentinel.Editor
             
             m_ProgressBar.value = 0;
             m_StatusLabel.text = $"Retry {attempt}/3 - Creating new plan...";
+        }
+        
+        private void OnMidExecutionReplan(int replanCount, TestStep failedStep, string reason)
+        {
+            // Add visual indicator for mid-execution replan
+            var replanLabel = new Label($"\n🔄 REPLANNING ({replanCount}/3) - Step {failedStep.StepNumber} failed: {reason}");
+            replanLabel.style.color = new Color(1f, 0.6f, 0.2f);
+            replanLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            replanLabel.style.marginTop = 10;
+            replanLabel.style.marginBottom = 5;
+            m_PlanContainer.Add(replanLabel);
+            
+            var analyzingLabel = new Label("   Consulting Planner for adjusted steps...");
+            analyzingLabel.style.color = new Color(0.7f, 0.7f, 0.7f);
+            analyzingLabel.style.unityFontStyleAndWeight = FontStyle.Italic;
+            m_PlanContainer.Add(analyzingLabel);
+            
+            m_StatusLabel.text = $"Replanning (step {failedStep.StepNumber} failed)...";
+            m_StatusLabel.style.color = new Color(1f, 0.6f, 0.2f);
         }
         
         private void AddLog(string message, Color color)

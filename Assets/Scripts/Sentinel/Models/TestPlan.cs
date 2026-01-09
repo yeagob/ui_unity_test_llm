@@ -75,6 +75,7 @@ namespace Sentinel.Models
         Created,
         Planning,
         Executing,
+        Replanning,  // Mid-execution replanning after step failure
         Completed,
         Failed,
         Cancelled

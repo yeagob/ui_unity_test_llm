@@ -14,9 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   agentId: mas_executor
   agentName: MAS Executor Agent
-  description: Executes single UI actions precisely. Focused on action execution only.
-  providerConfig: {fileID: 11400000, guid: 67f7ec96dc639b94f9bd2ab55f229885, type: 2}
-  modelConfig: {fileID: 11400000, guid: 450ee2b7193e37542b61e1df3af89c13, type: 2}
+  description: Executes single UI actions precisely. Focused on action execution
+    only.
+  providerConfig: {fileID: 11400000, guid: aa8ef07821d96dd469f4dfa6e7b49c3b, type: 2}
+  modelConfig: {fileID: 11400000, guid: 677372b95491cd94eaa579ac3701d33f, type: 2}
   systemPrompt: {fileID: 11400000, guid: ab79361edebb8214399453be44d3fc54, type: 2}
   contextPrompts: []
   availableTools:

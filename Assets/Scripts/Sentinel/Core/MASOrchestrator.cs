@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,10 +28,12 @@ namespace Sentinel.Core
         private readonly int _maxRetries;
         private readonly int _maxPlanSteps;
         private readonly int _maxTestAttempts;
+        private readonly int _maxMidExecutionReplans;
         
         private CancellationTokenSource _cancellationTokenSource;
         private bool _isRunning;
         private List<TestAttempt> _previousAttempts;
+        private int _currentMidExecutionReplanCount;
         
         public event Action<string> OnLog;
         public event Action<TestStep> OnStepStarted;
@@ -38,6 +41,7 @@ namespace Sentinel.Core
         public event Action<TestPlan> OnPlanCreated;
         public event Action<TestPlan> OnTestCompleted;
         public event Action<int, string> OnRetryWithNewStrategy;  // attempt number, analysis
+        public event Action<int, TestStep, string> OnMidExecutionReplan;  // replan count, failed step, reason
         
         /// <summary>
         /// Creates a new MAS Orchestrator with specialized agent configurations.
@@ -49,7 +53,8 @@ namespace Sentinel.Core
             AgentConfig verifierConfig,
             int maxRetries = 3,
             int maxPlanSteps = 20,
-            int maxTestAttempts = 3)
+            int maxTestAttempts = 3,
+            int maxMidExecutionReplans = 3)
         {
             _executor = executor;
             _plannerConfig = plannerConfig;
@@ -58,7 +63,9 @@ namespace Sentinel.Core
             _maxRetries = maxRetries;
             _maxPlanSteps = maxPlanSteps;
             _maxTestAttempts = maxTestAttempts;
+            _maxMidExecutionReplans = maxMidExecutionReplans;
             _previousAttempts = new List<TestAttempt>();
+            _currentMidExecutionReplanCount = 0;
             
             // Register all agents
             _executor.RegisterAgent(_plannerConfig);
@@ -91,6 +98,7 @@ namespace Sentinel.Core
                     }
                     
                     plan = new TestPlan(objective);
+                    _currentMidExecutionReplanCount = 0; // Reset replan counter for each attempt
                     
                     // Phase 1: Planning (with context from previous attempts if any)
                     plan.Status = PlanStatus.Planning;
@@ -335,20 +343,28 @@ Create the plan now.";
         {
             int passedSteps = 0;
             int failedSteps = 0;
+            int currentStepIndex = 0;
             
-            foreach (var step in plan.Steps)
+            while (currentStepIndex < plan.Steps.Count)
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    step.Status = StepStatus.Skipped;
-                    continue;
+                    // Mark remaining steps as skipped
+                    for (int i = currentStepIndex; i < plan.Steps.Count; i++)
+                    {
+                        plan.Steps[i].Status = StepStatus.Skipped;
+                    }
+                    break;
                 }
                 
+                var step = plan.Steps[currentStepIndex];
                 OnStepStarted?.Invoke(step);
                 Log($"  Step {step.StepNumber}: {step.Action}({step.Target})");
                 
                 // Execute step with retries
                 VerificationResult result = null;
+                bool stepPassed = false;
+                
                 for (int attempt = 0; attempt <= _maxRetries; attempt++)
                 {
                     if (attempt > 0)
@@ -377,6 +393,7 @@ Create the plan now.";
                     if (result.Success)
                     {
                         step.Status = StepStatus.Passed;
+                        stepPassed = true;
                         passedSteps++;
                         break;
                     }
@@ -396,18 +413,89 @@ Create the plan now.";
                     }
                 }
                 
-                if (step.Status != StepStatus.Passed)
+                if (!stepPassed)
                 {
                     step.Status = StepStatus.Failed;
                     failedSteps++;
                     Log($"    ❌ Step failed: {result?.Diagnosis ?? "Unknown error"}");
+                    OnStepCompleted?.Invoke(step, result);
+                    
+                    // === MID-EXECUTION REPLANNING ===
+                    // Instead of continuing with doomed steps, ask Planner to adjust
+                    if (_currentMidExecutionReplanCount < _maxMidExecutionReplans)
+                    {
+                        _currentMidExecutionReplanCount++;
+                        Log($"\n🔄 MID-EXECUTION REPLAN ({_currentMidExecutionReplanCount}/{_maxMidExecutionReplans})");
+                        Log($"   Step {step.StepNumber} failed - consulting Planner for adjusted plan...");
+                        
+                        OnMidExecutionReplan?.Invoke(_currentMidExecutionReplanCount, step, result?.Diagnosis ?? "Unknown");
+                        
+                        // Get completed steps for context
+                        var completedSteps = plan.Steps.GetRange(0, currentStepIndex + 1);
+                        var remainingSteps = currentStepIndex + 1 < plan.Steps.Count 
+                            ? plan.Steps.GetRange(currentStepIndex + 1, plan.Steps.Count - currentStepIndex - 1)
+                            : new List<TestStep>();
+                        
+                        // Ask planner for adjusted plan
+                        plan.Status = PlanStatus.Replanning;
+                        var newSteps = await MidExecutionReplanAsync(
+                            plan, 
+                            completedSteps, 
+                            remainingSteps, 
+                            step, 
+                            result?.Diagnosis ?? "Step failed",
+                            cancellationToken);
+                        
+                        if (newSteps != null && newSteps.Count > 0)
+                        {
+                            // Replace remaining steps with new plan
+                            // Keep completed steps, add new steps
+                            plan.Steps.RemoveRange(currentStepIndex + 1, plan.Steps.Count - currentStepIndex - 1);
+                            
+                            // Renumber and add new steps
+                            int nextStepNumber = step.StepNumber + 1;
+                            foreach (var newStep in newSteps)
+                            {
+                                newStep.StepNumber = nextStepNumber++;
+                                newStep.Status = StepStatus.Pending;
+                                plan.Steps.Add(newStep);
+                            }
+                            
+                            plan.Status = PlanStatus.Executing;
+                            OnPlanCreated?.Invoke(plan); // Refresh UI with new plan
+                            Log($"   ✅ Plan adjusted: {newSteps.Count} new steps added");
+                            
+                            // Continue from next step (the first new step)
+                            currentStepIndex++;
+                            continue;
+                        }
+                        else
+                        {
+                            Log($"   ⚠️ Replanning failed - no alternative found");
+                            plan.Status = PlanStatus.Executing;
+                        }
+                    }
+                    else
+                    {
+                        Log($"   ⚠️ Max mid-execution replans ({_maxMidExecutionReplans}) reached");
+                    }
+                    
+                    // Mark remaining steps as skipped since we couldn't recover
+                    for (int i = currentStepIndex + 1; i < plan.Steps.Count; i++)
+                    {
+                        plan.Steps[i].Status = StepStatus.Skipped;
+                    }
+                    
+                    Log($"📊 Results: {passedSteps} passed, {failedSteps} failed");
+                    return false; // Test failed, will trigger full replan if attempts remain
                 }
                 else
                 {
                     Log($"    ✅ Step passed");
+                    OnStepCompleted?.Invoke(step, result);
                 }
                 
-                OnStepCompleted?.Invoke(step, result);
+                currentStepIndex++;
                 
                 // Small delay between steps
                 await Task.Delay(100, cancellationToken);
@@ -705,6 +793,187 @@ Analyze and create a NEW plan now.";
             }
             
             return plan.Steps.Count > 0;
+        }
+        
+        /// <summary>
+        /// Mid-execution replanning: adjusts the plan when a step fails during execution.
+        /// Provides the Planner with context about what worked, what failed, and what remains.
+        /// </summary>
+        private async Task<List<TestStep>> MidExecutionReplanAsync(
+            TestPlan plan,
+            List<TestStep> completedSteps,
+            List<TestStep> remainingSteps,
+            TestStep failedStep,
+            string failureReason,
+            CancellationToken cancellationToken)
+        {
+            var context = new ConversationContext("planner-midexec-" + Guid.NewGuid());
+            
+            // Build context from execution state
+            var sb = new System.Text.StringBuilder();
+            
+            sb.AppendLine("=== EXECUTION STATE ===\n");
+            
+            if (completedSteps.Count > 0)
+            {
+                sb.AppendLine("STEPS COMPLETED SUCCESSFULLY:");
+                foreach (var step in completedSteps.Where(s => s.Status == StepStatus.Passed))
+                {
+                    sb.AppendLine($"  ✅ Step {step.StepNumber}: {step.Action}({step.Target}) - {step.ExpectedResult}");
+                }
+            }
+            
+            sb.AppendLine($"\nSTEP THAT JUST FAILED:");
+            sb.AppendLine($"  ❌ Step {failedStep.StepNumber}: {failedStep.Action}({failedStep.Target})");
+            sb.AppendLine($"     Expected: {failedStep.ExpectedResult}");
+            sb.AppendLine($"     Failure reason: {failureReason}");
+            
+            if (remainingSteps.Count > 0)
+            {
+                sb.AppendLine($"\nORIGINAL REMAINING STEPS (now invalid):");
+                foreach (var step in remainingSteps)
+                {
+                    sb.AppendLine($"  ⏳ Step {step.StepNumber}: {step.Action}({step.Target})");
+                }
+            }
+            
+            string replanPrompt = $@"TEST OBJECTIVE: {plan.Objective}
+
+A STEP HAS FAILED DURING EXECUTION. You need to adjust the plan.
+
+{sb}
+
+INSTRUCTIONS:
+1. FIRST, use query_ui to see the CURRENT UI state
+2. Based on what you observe, understand why the step failed
+3. Create ADJUSTED REMAINING STEPS to still achieve the objective
+4. The steps you provide will REPLACE the remaining steps
+
+IMPORTANT:
+- You are NOT starting from scratch - some steps already completed successfully
+- Focus only on achieving the objective FROM THE CURRENT UI STATE
+- Use the exact element names you see in query_ui
+- If the element doesn't exist, find an alternative path
+
+RESPONSE FORMAT (JSON):
+```json
+{{
+  ""analysis"": ""What you observe and why the step failed"",
+  ""can_recover"": true/false,
+  ""adjusted_steps"": [
+    {{""step"": 1, ""action"": ""..."", ""target"": ""..."", ""expected"": ""...""}},
+    ...
+  ]
+}}
+```
+
+NOTE: If can_recover is false, return empty adjusted_steps array.
+
+AVAILABLE ACTIONS: click, type_text, scroll, wait_seconds, wait_for_element, screenshot
+
+Analyze the current state and provide adjusted steps now.";
+
+            context.AddUserMessage(replanPrompt);
+            
+            Log("  🔍 Analyzing current UI state and creating adjusted plan...");
+            
+            // Execute planner for mid-execution replan
+            int maxIterations = 4;
+            for (int i = 0; i < maxIterations && !cancellationToken.IsCancellationRequested; i++)
+            {
+                var response = await _executor.ExecuteAgentAsync(_plannerConfig, context);
+                
+                if (!response.success)
+                {
+                    Log($"     ❌ Planner error: {response.content}");
+                    return null;
+                }
+                
+                // Log analysis if present
+                if (!string.IsNullOrEmpty(response.content))
+                {
+                    var analysisMatch = Regex.Match(response.content, @"""analysis""\s*:\s*""([^""]+)""");
+                    var canRecoverMatch = Regex.Match(response.content, @"""can_recover""\s*:\s*(true|false)");
+                    
+                    if (analysisMatch.Success)
+                    {
+                        Log($"     📊 Analysis: {analysisMatch.Groups[1].Value}");
+                    }
+                    
+                    if (canRecoverMatch.Success && canRecoverMatch.Groups[1].Value == "false")
+                    {
+                        Log($"     ⚠️ Planner determined recovery is not possible");
+                        return null;
+                    }
+                    
+                    // Try to parse adjusted steps
+                    var newSteps = TryParseAdjustedSteps(response.content);
+                    if (newSteps != null && newSteps.Count > 0)
+                    {
+                        return newSteps;
+                    }
+                }
+                
+                // If agent made tool calls, add response and continue
+                if (response.toolCalls != null && response.toolCalls.Count > 0)
+                {
+                    context.AddAssistantMessage(response.content);
+                    Log($"     Planner querying UI (iteration {i + 1})...");
+                    continue;
+                }
+                
+                // Ask again for JSON format
+                context.AddAssistantMessage(response.content);
+                context.AddUserMessage("Please provide the adjusted_steps in valid JSON format.");
+            }
+            
+            return null;
+        }
+        
+        /// <summary>
+        /// Parses adjusted steps from mid-execution replan response.
+        /// </summary>
+        private List<TestStep> TryParseAdjustedSteps(string content)
+        {
+            try
+            {
+                // Extract JSON from markdown if present
+                string json = content;
+                var jsonMatch = Regex.Match(content, @"```json\s*([\s\S]*?)\s*```");
+                if (jsonMatch.Success)
+                {
+                    json = jsonMatch.Groups[1].Value;
+                }
+                
+                // Parse steps array
+                var stepsMatch = Regex.Match(json, @"""adjusted_steps""\s*:\s*\[([\s\S]*?)\]");
+                if (!stepsMatch.Success) return null;
+                
+                var stepMatches = Regex.Matches(stepsMatch.Groups[1].Value,
+                    @"\{[^{}]*""step""\s*:\s*(\d+)[^{}]*""action""\s*:\s*""([^""]+)""[^{}]*""target""\s*:\s*""([^""]+)""[^{}]*""expected""\s*:\s*""([^""]+)""[^{}]*\}");
+                
+                if (stepMatches.Count == 0) return null;
+                
+                var steps = new List<TestStep>();
+                foreach (Match match in stepMatches)
+                {
+                    steps.Add(new TestStep
+                    {
+                        StepNumber = int.Parse(match.Groups[1].Value),
+                        Action = match.Groups[2].Value,
+                        Target = match.Groups[3].Value,
+                        ExpectedResult = match.Groups[4].Value,
+                        Status = StepStatus.Pending
+                    });
+                }
+                
+                return steps;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[MAS] Failed to parse adjusted steps: {ex.Message}");
+                return null;
+            }
         }
         
         #endregion
