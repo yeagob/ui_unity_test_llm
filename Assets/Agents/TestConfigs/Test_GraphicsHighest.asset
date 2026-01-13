@@ -22,7 +22,6 @@ MonoBehaviour:
   maxRetries: 2
   screenshotOnEachStep: 0
   predefinedSteps: []
-  lastRunTime: 0
-  lastRunResult: 
+  lastRunResult: FAILED
   lastRunPassedSteps: 0
   lastRunFailedSteps: 0

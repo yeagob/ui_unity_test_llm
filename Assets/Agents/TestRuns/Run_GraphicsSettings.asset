@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: Run_GraphicsSettings
   m_EditorClassIdentifier: 
   runName: Graphics Settings Suite
-  description: Complete graphics configuration tests - verifies that all graphics options can be changed
+  description: Complete graphics configuration tests - verifies that all graphics
+    options can be changed
   category: Settings
   tests:
   - {fileID: 11400000, guid: 96d8c4727ee4b4748bb96e34dc3a4d5f, type: 2}
@@ -23,9 +24,8 @@ MonoBehaviour:
   screenshotPerTest: 1
   reportDirectory: TestReports
   includeDetailedLogs: 1
-  lastRunTime: 0
   lastRunPassed: 0
-  lastRunFailed: 0
+  lastRunFailed: 2
   lastRunSkipped: 0
-  lastRunDurationSeconds: 0
-  lastReportPath: 
+  lastRunDurationSeconds: 9.84074
+  lastReportPath: D:/Projects/llm_unity_ui_tester/Assets\TestReports\Graphics_Settings_Suite_20260109_124241.md

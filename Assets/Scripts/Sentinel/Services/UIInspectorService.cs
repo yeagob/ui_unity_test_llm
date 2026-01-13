@@ -64,8 +64,26 @@ namespace Sentinel.Services
                 return "{\"error\": \"No UI found (no UIDocument or Canvas in scene)\"}";
             }
             
+            // Count visible vs total elements
+            int visibleCount = 0;
+            int interactableCount = 0;
+            foreach (string elem in elements)
+            {
+                if (elem.Contains("\"visible\": true"))
+                {
+                    visibleCount++;
+                    if (elem.Contains("\"enabled\": true") && !elem.Contains("\"type\": \"Text\""))
+                    {
+                        interactableCount++;
+                    }
+                }
+            }
+            
             sb.Append($"\"uiType\": \"{(hasUIToolkit && hasCanvas ? "Both" : hasUIToolkit ? "UIToolkit" : "Canvas")}\", ");
             sb.Append($"\"canvasCount\": {canvases?.Length ?? 0}, ");
+            sb.Append($"\"totalElements\": {elements.Count}, ");
+            sb.Append($"\"visibleElements\": {visibleCount}, ");
+            sb.Append($"\"interactableVisible\": {interactableCount}, ");
             sb.Append("\"elements\": [");
             sb.Append(string.Join(",", elements));
             sb.Append("]}");
@@ -190,6 +208,10 @@ namespace Sentinel.Services
             
             string currentPath = string.IsNullOrEmpty(path) ? obj.name : path + "/" + obj.name;
             
+            // Check visibility (alpha, scale, on-screen position)
+            bool isVisible = IsCanvasElementVisible(obj);
+            string visibleStr = isVisible ? "true" : "false";
+            
             // Check for interactable components
             UnityEngine.UI.Button button = obj.GetComponent<UnityEngine.UI.Button>();
             InputField inputField = obj.GetComponent<InputField>();
@@ -202,32 +224,32 @@ namespace Sentinel.Services
             if (button != null)
             {
                 string btnText = GetButtonText(obj);
-                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"Button\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"text\": \"{EscapeJson(btnText)}\", \"enabled\": {button.interactable.ToString().ToLower()}}}");
+                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"Button\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"text\": \"{EscapeJson(btnText)}\", \"enabled\": {button.interactable.ToString().ToLower()}, \"visible\": {visibleStr}}}");
             }
             else if (inputField != null)
             {
-                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"InputField\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"text\": \"{EscapeJson(inputField.text)}\", \"enabled\": {inputField.interactable.ToString().ToLower()}}}");
+                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"InputField\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"text\": \"{EscapeJson(inputField.text)}\", \"enabled\": {inputField.interactable.ToString().ToLower()}, \"visible\": {visibleStr}}}");
             }
             else if (tmpInput != null)
             {
-                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"TMP_InputField\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"text\": \"{EscapeJson(tmpInput.text)}\", \"enabled\": {tmpInput.interactable.ToString().ToLower()}}}");
+                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"TMP_InputField\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"text\": \"{EscapeJson(tmpInput.text)}\", \"enabled\": {tmpInput.interactable.ToString().ToLower()}, \"visible\": {visibleStr}}}");
             }
             else if (toggle != null)
             {
-                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"Toggle\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"isOn\": {toggle.isOn.ToString().ToLower()}, \"enabled\": {toggle.interactable.ToString().ToLower()}}}");
+                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"Toggle\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"isOn\": {toggle.isOn.ToString().ToLower()}, \"enabled\": {toggle.interactable.ToString().ToLower()}, \"visible\": {visibleStr}}}");
             }
             else if (slider != null)
             {
-                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"Slider\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"value\": {slider.value}, \"enabled\": {slider.interactable.ToString().ToLower()}}}");
+                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"Slider\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"value\": {slider.value}, \"enabled\": {slider.interactable.ToString().ToLower()}, \"visible\": {visibleStr}}}");
             }
             // Include Text elements for reference (not interactive but useful for context)
             else if (tmpText != null && !string.IsNullOrEmpty(tmpText.text))
             {
-                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"Text\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"text\": \"{EscapeJson(tmpText.text)}\", \"interactable\": false}}");
+                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"Text\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"text\": \"{EscapeJson(tmpText.text)}\", \"interactable\": false, \"visible\": {visibleStr}}}");
             }
             else if (text != null && !string.IsNullOrEmpty(text.text))
             {
-                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"Text\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"text\": \"{EscapeJson(text.text)}\", \"interactable\": false}}");
+                output.Add($"{{\"name\": \"{EscapeJson(obj.name)}\", \"type\": \"Text\", \"uiSystem\": \"Canvas\", \"path\": \"{EscapeJson(currentPath)}\", \"text\": \"{EscapeJson(text.text)}\", \"interactable\": false, \"visible\": {visibleStr}}}");
             }
             
             // Recurse children
@@ -235,6 +257,67 @@ namespace Sentinel.Services
             {
                 CollectCanvasElements(child.gameObject, currentPath, output);
             }
+        }
+        
+        /// <summary>
+        /// Determines if a Canvas element is actually visible to the user.
+        /// Checks: CanvasGroup alpha, RectTransform scale, and screen position.
+        /// </summary>
+        private bool IsCanvasElementVisible(GameObject obj)
+        {
+            // Check all parent CanvasGroups for alpha
+            Transform current = obj.transform;
+            while (current != null)
+            {
+                CanvasGroup cg = current.GetComponent<CanvasGroup>();
+                if (cg != null && cg.alpha < 0.1f)
+                {
+                    return false; // Hidden by CanvasGroup alpha
+                }
+                current = current.parent;
+            }
+            
+            // Check scale (if scale is 0, element is invisible)
+            Vector3 scale = obj.transform.lossyScale;
+            if (Mathf.Approximately(scale.x, 0f) || Mathf.Approximately(scale.y, 0f))
+            {
+                return false;
+            }
+            
+            // Check if RectTransform is on screen
+            RectTransform rectTransform = obj.GetComponent<RectTransform>();
+            if (rectTransform != null)
+            {
+                // Get the canvas this element belongs to
+                Canvas canvas = obj.GetComponentInParent<Canvas>();
+                if (canvas != null && canvas.worldCamera != null)
+                {
+                    Vector3[] corners = new Vector3[4];
+                    rectTransform.GetWorldCorners(corners);
+                    
+                    // Check if any corner is within screen bounds
+                    Camera cam = canvas.worldCamera;
+                    bool anyCornerOnScreen = false;
+                    foreach (Vector3 corner in corners)
+                    {
+                        Vector3 screenPoint = cam.WorldToScreenPoint(corner);
+                        if (screenPoint.x >= 0 && screenPoint.x <= Screen.width &&
+                            screenPoint.y >= 0 && screenPoint.y <= Screen.height &&
+                            screenPoint.z > 0)
+                        {
+                            anyCornerOnScreen = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!anyCornerOnScreen)
+                    {
+                        return false; // Off screen
+                    }
+                }
+            }
+            
+            return true;
         }
         
         private string GetButtonText(GameObject buttonObj)

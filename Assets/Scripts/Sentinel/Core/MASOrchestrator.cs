@@ -224,9 +224,18 @@ Your task is to create a structured plan for this test.
 
 INSTRUCTIONS:
 1. First use query_ui to see the current UI state
-2. Analyze what elements are available
-3. Create a step-by-step plan to achieve the objective
+2. Analyze the response carefully:
+   - The response includes 'totalElements' vs 'visibleElements' counts
+   - Each element has a 'visible': true/false field
+   - ONLY interact with elements that have 'visible': true
+   - Elements with 'visible': false exist but are hidden (by animation, alpha, or off-screen)
+3. Create a step-by-step plan using ONLY visible elements
 4. Each step must have: action, target, expected_result
+
+IMPORTANT:
+- If an element is listed but has 'visible': false, DO NOT try to interact with it
+- Focus on 'interactableVisible' count to know how many buttons/inputs are actually usable
+- If needed elements are not visible, first interact with visible elements to reveal them
 
 RESPONSE FORMAT (JSON):
 ```json
@@ -702,22 +711,24 @@ THE TEST HAS FAILED IN {_previousAttempts.Count} PREVIOUS ATTEMPT(S).
 
 ANALYSIS REQUIRED:
 1. First, use query_ui to see the CURRENT UI state
-2. Analyze what went wrong in previous attempts
-3. Identify why those specific steps failed
-4. CREATE A DIFFERENT PLAN that avoids the previous problems
+2. Check 'visibleElements' and 'interactableVisible' counts
+3. ONLY use elements with 'visible': true in your plan
+4. Analyze what went wrong - was the element hidden (visible: false)?
+5. CREATE A DIFFERENT PLAN using only visible elements
 
 POSSIBLE FAILURE CAUSES:
-- Incorrect element name (verify exact names)
-- Element not visible or not interactive
+- Element exists but 'visible': false (hidden by animation, alpha, off-screen)
+- Incorrect element name (verify exact names from query_ui)
+- Element not interactive (check 'enabled' field)
 - Incorrect order of actions
-- Missing waits (wait_for_element, wait_seconds)
-- UI different than expected
+- Missing waits for animations
 
 IMPORTANT: 
 - DO NOT repeat exactly the same plan
-- Try a DIFFERENT approach
+- Try a DIFFERENT approach using VISIBLE elements only
+- Check 'visible': true before targeting any element
+- If a settings menu appears hidden initially, first find what reveals it
 - Add more wait_for_element if necessary
-- Verify element names with query_ui
 
 RESPONSE FORMAT (JSON):
 ```json
@@ -845,15 +856,17 @@ A STEP HAS FAILED DURING EXECUTION. You need to adjust the plan.
 
 INSTRUCTIONS:
 1. FIRST, use query_ui to see the CURRENT UI state
-2. Based on what you observe, understand why the step failed
-3. Create ADJUSTED REMAINING STEPS to still achieve the objective
-4. The steps you provide will REPLACE the remaining steps
+2. Check the 'visibleElements' and 'interactableVisible' counts
+3. ONLY consider elements with 'visible': true - ignore hidden elements
+4. Understand why the step failed (likely element not visible or different name)
+5. Create ADJUSTED REMAINING STEPS using ONLY visible elements
 
 IMPORTANT:
 - You are NOT starting from scratch - some steps already completed successfully
 - Focus only on achieving the objective FROM THE CURRENT UI STATE
-- Use the exact element names you see in query_ui
-- If the element doesn't exist, find an alternative path
+- Use the exact element names you see in query_ui that have 'visible': true
+- If the target element has 'visible': false, it's hidden - find an alternative path
+- DO NOT try to interact with elements that are not visible
 
 RESPONSE FORMAT (JSON):
 ```json

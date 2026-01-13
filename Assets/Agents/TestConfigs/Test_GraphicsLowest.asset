@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   testName: Set Graphics to Lowest
   objective: Open the settings menu and set all graphics options to minimum (Low/Lowest)
-  successCriteria: All graphics options should be at their minimum value for maximum performance
+  successCriteria: All graphics options should be at their minimum value for maximum
+    performance
   plannerAgent: {fileID: 11400000, guid: ac84d426bb9873847a5a08dc3dd2f042, type: 2}
   executorAgent: {fileID: 11400000, guid: 729178533e46727428db7e3b65e67709, type: 2}
   verifierAgent: {fileID: 11400000, guid: 1aef0de81ddde7c42b2a5afe99f47b04, type: 2}
@@ -22,7 +23,6 @@ MonoBehaviour:
   maxRetries: 2
   screenshotOnEachStep: 0
   predefinedSteps: []
-  lastRunTime: 0
-  lastRunResult: 
+  lastRunResult: FAILED
   lastRunPassedSteps: 0
   lastRunFailedSteps: 0
